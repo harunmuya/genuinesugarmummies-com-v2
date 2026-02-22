@@ -41,7 +41,7 @@ const nextConfig = {
                     },
                     {
                         key: 'Referrer-Policy',
-                        value: 'strict-origin-when-cross-origin',
+                        value: 'no-referrer-when-downgrade',
                     },
                     {
                         key: 'X-DNS-Prefetch-Control',
@@ -63,7 +63,7 @@ const nextConfig = {
                             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                             "font-src 'self' https://fonts.gstatic.com",
                             "img-src 'self' data: blob: https:",
-                            "connect-src 'self' https://genuinesugarmummies.com https://tislsfajzqcctjcrmnlg.supabase.co https://t.me",
+                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com https://tislsfajzqcctjcrmnlg.supabase.co https://t.me",
                             "frame-ancestors 'none'",
                             "base-uri 'self'",
                             "form-action 'self'",

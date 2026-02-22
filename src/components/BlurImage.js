@@ -76,7 +76,10 @@ export default function BlurImage({
                 alt={alt}
                 loading={priority ? 'eager' : 'lazy'}
                 onLoad={() => setLoaded(true)}
-                onError={() => setError(true)}
+                onError={(e) => {
+                    console.error('[BlurImage Error] Failed to load:', src);
+                    setError(true);
+                }}
                 style={{
                     width: '100%',
                     height: '100%',
