@@ -1,22 +1,23 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Mail, Camera, Trash2, Shield, ShieldCheck, LogOut,
     Settings, ChevronRight, Heart, MessageCircle, Bell, Bookmark,
     MapPin, Edit3, Plus, X, Send, AlertTriangle, ExternalLink,
-    Info, HelpCircle, Trash, Clock, Gem, Users,
+    Info, HelpCircle, Trash, Clock, Gem, Users, PackageCheck, Headphones,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import UserAvatar from '@/components/UserAvatar';
 import VerifiedBadge from '@/components/VerifiedBadge';
-import EmailSubscribe from '@/components/EmailSubscribe';
 
 const PREFERENCE_LABELS = {
-    sugar_mummy: '💃 Sugar Mummy',
-    sugar_daddy: '🕺 Sugar Daddy',
-    both: '💕 Both',
+    sugar_mummy_looking_for_toyboy: 'Sugar Mummy seeking Sugar Guy / Toyboy',
+    sugar_daddy_looking_for_mistress: 'Sugar Daddy seeking Mistress',
+    mistress_looking_for_sugar_daddy: 'Mistress seeking Sugar Daddy',
+    toyboy_looking_for_sugar_mummy: 'Sugar Guy / Toyboy seeking Sugar Mummy',
 };
 
 export default function ProfilePage() {
@@ -33,12 +34,29 @@ export default function ProfilePage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showPreferencePicker, setShowPreferencePicker] = useState(false);
     const [moderationCountdown, setModerationCountdown] = useState('');
+    const [verificationForm, setVerificationForm] = useState({ selfieDataUrl: '', documentDataUrl: '', documentType: 'id', phone: profile?.phone_number || profile?.phone || '' });
+    const [supportForm, setSupportForm] = useState({ subject: '', message: '' });
+    const [supportStatus, setSupportStatus] = useState('');
     const fileInputRef = useRef(null);
     const selfieInputRef = useRef(null);
+    const documentInputRef = useRef(null);
 
     const isLoggedIn = !!user;
+    const currentTier = String(profile?.subscription_tier || profile?.subscriptionTier || 'free').toLowerCase();
+    const packageApproved = Boolean(profile?.admin_approved && !profile?.package_locked);
+    const canRevealPhone = packageApproved && ['silver', 'gold', 'diamond'].includes(currentTier);
+    const canUseBasic = packageApproved && ['basic', 'silver', 'gold', 'diamond'].includes(currentTier);
     const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Guest';
     const userPhotos = profile?.photos || [];
+    const profileComplete = Boolean((profile?.avatar_url || userPhotos[0]) && profile?.bio && profile?.age && profile?.location);
+    const effectiveVerificationStatus = profile?.verification_status || verificationStatus;
+    const missingFields = [
+        !(profile?.avatar_url || userPhotos[0]) && 'profile photo',
+        !profile?.bio && 'bio',
+        !profile?.age && 'age',
+        !profile?.location && 'location',
+        !profile?.phone_number && !profile?.phone && 'phone number',
+    ].filter(Boolean);
 
     // Moderation countdown timer
     useEffect(() => {
@@ -81,14 +99,64 @@ export default function ProfilePage() {
         e.target.value = '';
     };
 
-    // Selfie verification
+    const readCompressedImage = (file, callback) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX = 900;
+                let w = img.width, h = img.height;
+                if (w > MAX || h > MAX) {
+                    if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                    else { w = Math.round(w * MAX / h); h = MAX; }
+                }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                callback(canvas.toDataURL('image/webp', 0.82));
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleSelfieCapture = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => verifyProfile(ev.target.result);
-        reader.readAsDataURL(file);
+        readCompressedImage(file, (dataUrl) => setVerificationForm((current) => ({ ...current, selfieDataUrl: dataUrl })));
         e.target.value = '';
+    };
+
+    const handleDocumentCapture = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        readCompressedImage(file, (dataUrl) => setVerificationForm((current) => ({ ...current, documentDataUrl: dataUrl })));
+        e.target.value = '';
+    };
+
+    const submitVerification = () => {
+        verifyProfile({ ...verificationForm, phone: verificationForm.phone || profile?.phone_number || profile?.phone || '' });
+    };
+
+    const submitSupportTicket = async () => {
+        const subject = supportForm.subject.trim() || 'Support request';
+        const message = supportForm.message.trim();
+        if (message.length < 3) { setSupportStatus('Write a short message for support.'); return; }
+        setSupportStatus('Submitting...');
+        try {
+            const res = await fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'support_ticket', memberId: profile?.id || user?.id, subject, message }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Support request failed.');
+            setSupportStatus('Support ticket submitted. Admin can see it in Tickets.');
+            setSupportForm({ subject: '', message: '' });
+        } catch (error) {
+            setSupportStatus(error.message || 'Support request failed.');
+        }
     };
 
     // Edit field
@@ -127,11 +195,11 @@ export default function ProfilePage() {
                     {/* Preference badge */}
                     {isLoggedIn && preference && (
                         <button
-                            onClick={() => setShowPreferencePicker(true)}
+                            onClick={() => !profile?.preference_locked && setShowPreferencePicker(true)}
                             className="mt-1 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-primary"
                             style={{ background: 'rgba(124,58,237,0.08)' }}
                         >
-                            {PREFERENCE_LABELS[preference] || preference} <Edit3 size={10} />
+                            {PREFERENCE_LABELS[preference] || preference} {profile?.preference_locked ? '(locked)' : <Edit3 size={10} />}
                         </button>
                     )}
                 </div>
@@ -151,6 +219,25 @@ export default function ProfilePage() {
                     ))}
                 </div>
             </div>
+
+            {isLoggedIn && !profileComplete && (
+                <div className="rounded-2xl p-4 space-y-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)' }}>
+                    <p className="text-sm font-black text-amber-700">Complete your profile to unlock the app</p>
+                    <p className="text-xs text-text-secondary">Add: {missingFields.join(', ')}. Your profile is listed in Members after the required details are saved.</p>
+                </div>
+            )}
+
+            {isLoggedIn && (
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                    <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5"><PackageCheck size={16} className="text-primary" /> Package Access</h3>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-xl p-3 bg-primary/10"><p className="text-[10px] text-text-muted">Tier</p><p className="text-sm font-black text-primary">{currentTier.toUpperCase()}</p></div>
+                        <div className="rounded-xl p-3 bg-secondary/10"><p className="text-[10px] text-text-muted">Basic</p><p className="text-sm font-black text-secondary">{canUseBasic ? 'ON' : 'OFF'}</p></div>
+                        <div className="rounded-xl p-3 bg-amber-100"><p className="text-[10px] text-text-muted">Numbers</p><p className="text-sm font-black text-gold">{canRevealPhone ? 'ON' : 'LOCKED'}</p></div>
+                    </div>
+                    <Link href="/packages" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-white gradient-primary"><Gem size={16} /> Manage Packages</Link>
+                </div>
+            )}
 
             {/* ===== PHOTOS (always-visible delete button) ===== */}
             {isLoggedIn && (
@@ -190,66 +277,57 @@ export default function ProfilePage() {
                 </div>
             )}
 
-            {/* ===== AI VERIFICATION (with 10-min moderation timer) ===== */}
-            {isLoggedIn && (
+            {/* ===== MANUAL VERIFICATION ===== */}
+            {isLoggedIn && effectiveVerificationStatus !== 'verified' && (
                 <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
-                        <Shield size={16} className="text-primary" /> AI Verification
+                        <Shield size={16} className="text-primary" /> Manual Verification
                     </h3>
 
-                    {verificationStatus === 'verified' ? (
+                    {false ? (
                         <div className="flex items-center gap-3 p-3 rounded-xl bg-success/10">
                             <ShieldCheck size={24} className="text-success" />
                             <div>
-                                <p className="text-sm font-bold text-success">Verified ✓</p>
-                                <p className="text-xs text-text-muted">Your identity has been confirmed</p>
+                                <p className="text-sm font-bold text-success">Verified</p>
+                                <p className="text-xs text-text-muted">Your selfie, ID/passport, and phone were manually approved by admin.</p>
                             </div>
                         </div>
-                    ) : verificationStatus === 'moderation_review' ? (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(124,58,237,0.08)' }}>
-                                <Clock size={24} className="text-primary" />
-                                <div className="flex-1">
-                                    <p className="text-sm font-bold text-primary">Under Moderation Review</p>
-                                    <p className="text-xs text-text-muted">Your selfie passed AI analysis. Our team is reviewing...</p>
-                                </div>
+                    ) : effectiveVerificationStatus === 'pending_admin' ? (
+                        <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(124,58,237,0.08)' }}>
+                            <Clock size={24} className="text-primary" />
+                            <div className="flex-1">
+                                <p className="text-sm font-bold text-primary">Waiting for Admin Review</p>
+                                <p className="text-xs text-text-muted">Admin will approve or reject this request in the control panel.</p>
                             </div>
-                            {/* Countdown timer */}
-                            <div className="flex flex-col items-center gap-2 py-4">
-                                <div className="w-20 h-20 rounded-full border-4 border-primary/30 flex items-center justify-center relative">
-                                    <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" style={{ animationDuration: '3s' }} />
-                                    <span className="text-lg font-black text-primary">{moderationCountdown}</span>
-                                </div>
-                                <p className="text-xs text-text-muted font-medium">Estimated time remaining</p>
-                            </div>
-                        </div>
-                    ) : verificationStatus === 'processing' ? (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/10">
-                            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                            <p className="text-sm font-medium text-primary">AI is analyzing your selfie...</p>
                         </div>
                     ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             <p className="text-xs text-text-muted leading-relaxed">
-                                Upload a selfie to verify your identity. Our AI analyzes facial features, then moderators review. You'll get a blue badge!
+                                Submit a clear selfie, your ID or passport, and your phone number. Admin approval is required before the verified badge and premium package unlocks appear.
                             </p>
-                            <button
-                                onClick={() => selfieInputRef.current?.click()}
-                                className="w-full py-3 rounded-xl font-semibold text-white gradient-primary flex items-center justify-center gap-2"
-                            >
-                                <Camera size={18} /> Take Selfie to Verify
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => selfieInputRef.current?.click()} className="rounded-xl py-3 px-3 text-xs font-bold bg-primary/10 text-primary flex items-center justify-center gap-2">
+                                    <Camera size={16} /> {verificationForm.selfieDataUrl ? 'Selfie Added' : 'Add Selfie'}
+                                </button>
+                                <button onClick={() => documentInputRef.current?.click()} className="rounded-xl py-3 px-3 text-xs font-bold bg-secondary/10 text-secondary flex items-center justify-center gap-2">
+                                    <Shield size={16} /> {verificationForm.documentDataUrl ? 'Document Added' : 'Add ID/Passport'}
+                                </button>
+                            </div>
+                            <select value={verificationForm.documentType} onChange={(e) => setVerificationForm((current) => ({ ...current, documentType: e.target.value }))} className="w-full rounded-xl py-3 px-3 text-sm" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }}>
+                                <option value="id">National ID</option>
+                                <option value="passport">Passport</option>
+                            </select>
+                            <input value={verificationForm.phone} onChange={(e) => setVerificationForm((current) => ({ ...current, phone: e.target.value }))} placeholder="Phone number for verification" className="w-full rounded-xl py-3 px-3 text-sm" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }} />
+                            <button onClick={submitVerification} className="w-full py-3 rounded-xl font-semibold text-white gradient-primary flex items-center justify-center gap-2">
+                                <Send size={18} /> Submit Verification Request
                             </button>
-                            {verificationStatus === 'failed' && (
-                                <p className="text-xs text-danger font-medium text-center">
-                                    Verification failed. Please try again with a clear, well-lit selfie of your face.
-                                </p>
-                            )}
+                            {effectiveVerificationStatus === 'failed' && <p className="text-xs text-danger font-medium text-center">Selfie, ID/passport, and phone number are required.</p>}
                         </div>
                     )}
                     <input ref={selfieInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleSelfieCapture} />
+                    <input ref={documentInputRef} type="file" accept="image/*" className="hidden" onChange={handleDocumentCapture} />
                 </div>
             )}
-
             {/* ===== PROFILE INFO (editable) ===== */}
             {isLoggedIn && (
                 <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
@@ -262,7 +340,12 @@ export default function ProfilePage() {
                         { key: 'display_name', label: 'Name', value: profile?.display_name },
                         { key: 'bio', label: 'Bio', value: profile?.bio },
                         { key: 'age', label: 'Age', value: profile?.age },
-                        { key: 'orientation', label: 'Looking for', value: profile?.orientation },
+                        { key: 'location', label: 'Location', value: profile?.location },
+                        { key: 'phone_number', label: 'Phone Number', value: profile?.phone_number || profile?.phone },
+                        { key: 'wants', label: 'What I want', value: profile?.wants },
+                        { key: 'needed_qualities', label: 'Needed qualities', value: profile?.needed_qualities },
+                        { key: 'age_range_preference', label: 'Preferred age range', value: profile?.age_range_preference },
+                        { key: 'looking_for', label: 'Looking for', value: profile?.looking_for },
                     ].map((field) => (
                         <div key={field.key}
                             className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors hover:bg-primary/5"
@@ -299,8 +382,6 @@ export default function ProfilePage() {
                 </div>
             )}
 
-            {/* ===== EMAIL SUBSCRIPTION ===== */}
-            <EmailSubscribe />
 
             {/* ===== SETTINGS ===== */}
             {isLoggedIn && (
@@ -316,7 +397,7 @@ export default function ProfilePage() {
                         { key: 'showOnline', label: 'Show Online Status' },
                         { key: 'showAge', label: 'Show Age' },
                         { key: 'isPublic', label: 'Public Profile' },
-                        { key: 'liveLocation', label: 'Share Live Location' },
+                        
                     ].map((setting) => (
                         <div key={setting.key}
                             className="flex items-center justify-between px-4 py-3"
@@ -341,25 +422,15 @@ export default function ProfilePage() {
                 </div>
             )}
 
-            {/* ===== CONTACT & HELP ===== */}
-            <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
-                <a href="https://t.me/GSADMINMARYGAGENCY" target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-primary/5"
-                    style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}
-                >
-                    <HelpCircle size={18} className="text-primary" />
-                    <span className="text-sm text-text-primary flex-1">Contact Admin @GSADMINMARYGAGENCY</span>
-                    <ExternalLink size={14} className="text-text-muted" />
-                </a>
-                <a href="https://genuinesugarmummies.com" target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-primary/5"
-                >
-                    <Info size={18} className="text-primary" />
-                    <span className="text-sm text-text-primary flex-1">Visit Website</span>
-                    <ExternalLink size={14} className="text-text-muted" />
-                </a>
+            {/* ===== SUPPORT & HELP ===== */}
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5"><Headphones size={16} className="text-primary" /> Support & Help</h3>
+                <input value={supportForm.subject} onChange={(e) => setSupportForm({ ...supportForm, subject: e.target.value })} placeholder="Subject" className="w-full rounded-xl py-3 px-3 text-sm" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }} />
+                <textarea value={supportForm.message} onChange={(e) => setSupportForm({ ...supportForm, message: e.target.value })} placeholder="Tell support what you need" rows={3} className="w-full rounded-xl py-3 px-3 text-sm resize-none" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }} />
+                <button onClick={submitSupportTicket} className="w-full py-3 rounded-xl font-bold text-white gradient-primary flex items-center justify-center gap-2"><Send size={16} /> Submit Ticket</button>
+                {supportStatus && <p className="text-xs font-bold text-primary bg-primary/10 rounded-xl p-3">{supportStatus}</p>}
+                <a href="https://t.me/GSADMINMARYGAGENCY" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-primary"><ExternalLink size={15} /> Telegram Admin Support</a>
             </div>
-
             {/* ===== SIGN OUT / DELETE ===== */}
             <div className="space-y-2">
                 {isLoggedIn && (
@@ -477,3 +548,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+

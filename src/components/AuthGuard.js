@@ -1,19 +1,31 @@
-'use client';
+﻿'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Logo from '@/components/Logo';
 
+function isProfileComplete(user) {
+    if (!user) return false;
+    const hasPhoto = Boolean(user.avatar_url || user.avatarUrl || user.photos?.[0]);
+    return Boolean(hasPhoto && user.bio && user.age && user.location);
+}
+
 export default function AuthGuard({ children }) {
-    const { user, guest, loading } = useAuth();
+    const { user, loading } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
-        if (!loading && !user && !guest) {
+        if (loading) return;
+        if (!user) {
             router.replace('/auth/login');
+            return;
         }
-    }, [user, guest, loading, router]);
+        if (pathname !== '/profile' && !isProfileComplete(user)) {
+            router.replace('/profile?complete=1');
+        }
+    }, [user, loading, router, pathname]);
 
     if (loading) {
         return (
@@ -26,7 +38,8 @@ export default function AuthGuard({ children }) {
         );
     }
 
-    if (!user && !guest) return null;
+    if (!user) return null;
+    if (pathname !== '/profile' && !isProfileComplete(user)) return null;
 
     return children;
 }

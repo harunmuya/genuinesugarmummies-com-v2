@@ -1,135 +1,137 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    Heart, MessageCircle, Bell, Eye, UserCheck,
-    Zap, Send, Star, Sparkles, ExternalLink,
-} from 'lucide-react';
+import { Bell, CheckCheck, Gift, Mail, MessageCircle, PackageCheck, ShieldCheck, Sparkles, UserCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import UserAvatar from '@/components/UserAvatar';
 
-const ICON_MAP = {
-    like: { icon: Heart, color: '#EC4899', bg: '#fce7f3' },
-    match: { icon: Sparkles, color: '#7C3AED', bg: '#ede9fe' },
-    meetup_ready: { icon: Zap, color: '#F59E0B', bg: '#fef3c7' },
-    connection_request: { icon: UserCheck, color: '#14B8A6', bg: '#ccfbf1' },
-    request_hookup: { icon: Star, color: '#EC4899', bg: '#fce7f3' },
-    message: { icon: Send, color: '#3B82F6', bg: '#dbeafe' },
-    view: { icon: Eye, color: '#6B7280', bg: '#f3f4f6' },
-    profile_update: { icon: Bell, color: '#7C3AED', bg: '#ede9fe' },
-    login: { icon: UserCheck, color: '#10B981', bg: '#d1fae5' },
-    comment_sent: { icon: MessageCircle, color: '#3B82F6', bg: '#dbeafe' },
+const ICONS = {
+    message: MessageCircle,
+    member_message: MessageCircle,
+    package_request: PackageCheck,
+    verification: ShieldCheck,
+    gift: Gift,
+    match: Sparkles,
+    like: UserCheck,
+    default: Bell,
 };
 
 function timeAgo(ts) {
-    const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+    const diff = Math.max(0, (Date.now() - new Date(ts || Date.now()).getTime()) / 1000);
     if (diff < 60) return 'Just now';
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function normalizeMessage(message) {
+    return {
+        id: message.id,
+        type: message.type || 'message',
+        title: message.title || message.sender || 'Message',
+        body: message.body || message.message || '',
+        image: message.senderImage || message.image || '',
+        timestamp: message.timestamp || message.created_at || new Date().toISOString(),
+        read: Boolean(message.read),
+        memberId: message.memberId || message.profileId,
+    };
+}
+
+function normalizeActivity(item) {
+    return {
+        id: item.id,
+        type: item.type || 'default',
+        title: item.title || 'Activity',
+        body: item.message || item.body || '',
+        image: item.image || '',
+        timestamp: item.timestamp || item.created_at || new Date().toISOString(),
+        read: Boolean(item.read),
+        memberId: item.memberId || item.profileId,
+    };
+}
+
 export default function AlertsPage() {
     const router = useRouter();
-    const { activity, markActivityRead } = useAuth();
+    const { activity, messages, markActivityRead, markMessagesRead } = useAuth();
+    const [tab, setTab] = useState('inbox');
+    const [tick, setTick] = useState(0);
 
     useEffect(() => {
-        const timer = setTimeout(() => markActivityRead(), 2000);
-        return () => clearTimeout(timer);
-    }, [markActivityRead]);
+        const interval = setInterval(() => setTick((value) => value + 1), 5000);
+        return () => clearInterval(interval);
+    }, []);
 
-    const sortedActivity = useMemo(() => {
-        return [...activity]
-            .filter(a => a.type !== 'login' && a.type !== 'profile_update')
-            .slice(0, 50);
-    }, [activity]);
+    const inbox = useMemo(() => {
+        const messageItems = (messages || []).map(normalizeMessage);
+        const activityItems = (activity || [])
+            .filter((item) => !['login'].includes(item.type))
+            .map(normalizeActivity);
+        const merged = [...messageItems, ...activityItems];
+        const unique = new Map();
+        merged.forEach((item) => unique.set(item.id || `${item.type}-${item.timestamp}`, item));
+        return [...unique.values()].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 100);
+    }, [messages, activity, tick]);
 
-    const unreadCount = sortedActivity.filter(a => !a.read).length;
+    const visible = tab === 'messages'
+        ? inbox.filter((item) => ['message', 'member_message', 'comment_sent', 'verification', 'package_request'].includes(item.type))
+        : inbox;
+    const unreadCount = inbox.filter((item) => !item.read).length;
 
-    const handleAlertClick = (item) => {
-        if (item.profileId) {
-            router.push(`/discover/${item.profileId}`);
-        } else if (item.type === 'connection_request' || item.type === 'meetup_ready' || item.type === 'request_hookup') {
-            const msg = encodeURIComponent(`Hi, I'm interested in connecting`);
-            window.open(`https://t.me/GSADMINMARYGAGENCY?text=${msg}`, '_blank');
-        }
-    };
+    function markAllRead() {
+        markActivityRead?.();
+        markMessagesRead?.();
+    }
+
+    function openItem(item) {
+        if (item.memberId) router.push(`/members/${item.memberId}`);
+    }
 
     return (
-        <div className="px-4 py-4 space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="px-4 py-4 pb-28 space-y-4">
+            <div className="flex items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-xl font-black text-text-primary">Alerts</h1>
-                    {unreadCount > 0 && (
-                        <p className="text-xs text-primary font-medium">{unreadCount} new notifications</p>
-                    )}
+                    <h1 className="text-xl font-black text-text-primary">Inbox & Alerts</h1>
+                    <p className="text-xs text-text-muted">Messages, package updates, gifts, verification, and match activity.</p>
                 </div>
+                <button onClick={markAllRead} className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center" aria-label="Mark read">
+                    <CheckCheck size={18} />
+                </button>
             </div>
 
-            {sortedActivity.length === 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+                {[
+                    ['inbox', 'All'],
+                    ['messages', 'Messages'],
+                    ['activity', 'Activity'],
+                ].map(([id, label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-xl py-2 text-xs font-black ${tab === id ? 'gradient-primary text-white' : 'bg-white text-text-secondary'}`}>{label}</button>)}
+            </div>
+
+            {unreadCount > 0 && <div className="rounded-2xl p-3 text-xs font-bold text-primary bg-primary/10">{unreadCount} unread item{unreadCount === 1 ? '' : 's'}</div>}
+
+            {visible.length === 0 ? (
                 <div className="text-center py-16 space-y-4">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                        <Bell size={32} className="text-primary" />
-                    </div>
-                    <h3 className="text-lg font-bold text-text-primary">No Alerts Yet</h3>
-                    <p className="text-sm text-text-muted max-w-xs mx-auto">
-                        When sugar mummies interact with you, your alerts will appear here.
-                    </p>
+                    <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center"><Mail size={30} className="text-primary" /></div>
+                    <h3 className="text-lg font-bold text-text-primary">No Records Yet</h3>
+                    <p className="text-sm text-text-muted max-w-xs mx-auto">Messages, gifts, package requests, and support replies will be recorded here.</p>
                 </div>
             ) : (
                 <div className="space-y-2">
                     <AnimatePresence initial={false}>
-                        {sortedActivity.map((item, i) => {
-                            const config = ICON_MAP[item.type] || ICON_MAP.view;
-                            const Icon = config.icon;
-                            const isClickable = item.profileId || ['connection_request', 'meetup_ready', 'request_hookup'].includes(item.type);
-
+                        {visible.map((item, index) => {
+                            const Icon = ICONS[item.type] || ICONS.default;
                             return (
-                                <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.03 }}
-                                    onClick={() => isClickable && handleAlertClick(item)}
-                                    className={`flex items-start gap-3 p-3 rounded-2xl transition-all ${!item.read ? 'bg-primary/5' : ''
-                                        } ${isClickable ? 'cursor-pointer active:scale-[0.98]' : ''}`}
-                                    style={{ border: 'var(--card-border)' }}
-                                >
-                                    {/* Icon or Avatar */}
-                                    {item.image ? (
-                                        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-                                            <img src={item.image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                                            style={{ backgroundColor: config.bg }}>
-                                            <Icon size={18} style={{ color: config.color }} />
-                                        </div>
-                                    )}
-
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-text-primary leading-snug truncate">
-                                            {item.title}
-                                        </p>
-                                        {item.message && (
-                                            <p className="text-xs text-text-muted mt-0.5 truncate">{item.message}</p>
-                                        )}
+                                <motion.button key={item.id || `${item.type}-${index}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }} onClick={() => openItem(item)} className="w-full text-left rounded-2xl p-3 flex items-start gap-3 active:scale-[0.99]" style={{ background: item.read ? 'var(--color-bg-card)' : 'rgba(15,118,110,0.07)', border: 'var(--card-border)' }}>
+                                    <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 overflow-hidden">
+                                        {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> : <Icon size={19} />}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-black text-text-primary truncate">{item.title}</p>
+                                        {item.body && <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">{item.body}</p>}
                                         <p className="text-[10px] text-text-muted mt-1">{timeAgo(item.timestamp)}</p>
                                     </div>
-
-                                    {/* Unread dot */}
-                                    {!item.read && (
-                                        <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
-                                    )}
-
-                                    {isClickable && (
-                                        <ExternalLink size={14} className="text-text-muted shrink-0 mt-1.5" />
-                                    )}
-                                </motion.div>
+                                    {!item.read && <span className="w-2.5 h-2.5 rounded-full bg-secondary mt-2" />}
+                                </motion.button>
                             );
                         })}
                     </AnimatePresence>

@@ -1,11 +1,11 @@
-{
+﻿{
     "name": "GenuineSugarMummies.com",
     "short_name": "GS.com",
-    "description": "Genuine Sugar Mummies — Premium Connection Platform",
+    "description": "Genuine Sugar Mummies â€” Premium Connection Platform",
     "start_url": "/discover",
     "display": "standalone",
     "background_color": "#ffffff",
-    "theme_color": "#7C3AED",
+    "theme_color": "#0F766E",
     "orientation": "portrait",
     "scope": "/",
     "icons": [

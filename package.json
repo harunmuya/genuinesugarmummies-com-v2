@@ -13,6 +13,7 @@
         "@tailwindcss/postcss": "^4.1.18",
         "autoprefixer": "^10.4.24",
         "framer-motion": "^12.34.0",
+        "@supabase/supabase-js": "^2.0.0",
         "lucide-react": "^0.563.0",
         "next": "^16.1.6",
         "postcss": "^8.5.6",

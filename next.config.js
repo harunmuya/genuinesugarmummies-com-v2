@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    turbopack: {
+        root: __dirname,
+    },
+
     images: {
         remotePatterns: [
             {
@@ -21,6 +25,10 @@ const nextConfig = {
             {
                 protocol: 'https',
                 hostname: 'tislsfajzqcctjcrmnlg.supabase.co',
+            },
+            {
+                protocol: 'https',
+                hostname: 'rmsvyhfpiytcffjkozje.supabase.co',
             },
         ],
     },
@@ -59,11 +67,12 @@ const nextConfig = {
                         key: 'Content-Security-Policy',
                         value: [
                             "default-src 'self'",
-                            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com",
+                            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
                             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                             "font-src 'self' https://fonts.gstatic.com",
                             "img-src 'self' data: blob: https:",
-                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com https://tislsfajzqcctjcrmnlg.supabase.co https://t.me",
+                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com https://tislsfajzqcctjcrmnlg.supabase.co https://rmsvyhfpiytcffjkozje.supabase.co https://t.me https://www.google.com/recaptcha/",
+                            "frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
                             "frame-ancestors 'none'",
                             "base-uri 'self'",
                             "form-action 'self'",

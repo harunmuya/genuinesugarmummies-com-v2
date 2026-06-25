@@ -1,4 +1,4 @@
-import './globals.css';
+﻿import './globals.css';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import NotificationManager from '@/components/NotificationManager';
@@ -9,7 +9,7 @@ export const viewport = {
     maximumScale: 1,
     userScalable: false,
     viewportFit: 'cover',
-    themeColor: '#7C3AED',
+    themeColor: '#0F766E',
 };
 
 export const metadata = {
@@ -72,7 +72,8 @@ export default function RootLayout({ children }) {
                         __html: `
                             if ('serviceWorker' in navigator) {
                                 window.addEventListener('load', () => {
-                                    navigator.serviceWorker.register('/sw.js').catch(() => {});
+                                    navigator.serviceWorker.getRegistrations?.().then((regs) => regs.forEach((reg) => reg.update?.())).catch(() => {});
+                                    navigator.serviceWorker.register('/sw.js?v=20260625-2', { updateViaCache: 'none' }).catch(() => {});
                                 });
                             }
                         `,
@@ -82,3 +83,5 @@ export default function RootLayout({ children }) {
         </html>
     );
 }
+
+
