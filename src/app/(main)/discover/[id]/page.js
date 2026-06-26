@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,24 @@ import CommentForm from '@/components/CommentForm';
 import ContactButtons from '@/components/ContactButtons';
 import { useAuth } from '@/contexts/AuthContext';
 
+function cleanHtmlText(value = '') {
+    return String(value || '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&hellip;/g, '...')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function shortAbout(profile) {
+    const raw = profile?.excerpt || profile?.bio || profile?.content || '';
+    const text = cleanHtmlText(raw);
+    if (!text) return '';
+    return text.length > 360 ? `${text.slice(0, 357).trim()}...` : text;
+}
 // Relative time helper
 function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -139,6 +157,7 @@ export default function ProfileDetailPage({ params }) {
     }
 
     const saved = isProfileSaved(profile.wpId);
+    const aboutText = shortAbout(profile);
 
     return (
         <div className="pb-24">
@@ -237,21 +256,13 @@ export default function ProfileDetailPage({ params }) {
                         <p className="text-xs font-bold text-text-primary">{liked ? 1 : 0}</p>
                     </div>
                 </div>
-
-                {/* Bio / Excerpt */}
-                {profile.excerpt && (
+                {/* About */}
+                {aboutText && (
                     <div className="rounded-2xl p-4 space-y-2" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                         <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                             <Sparkles size={16} className="text-primary" /> About
                         </h3>
-                        <div className="text-sm text-text-secondary leading-relaxed" dangerouslySetInnerHTML={{ __html: profile.excerpt }} />
-                    </div>
-                )}
-
-                {/* Full content */}
-                {profile.content && (
-                    <div className="rounded-2xl p-4" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
-                        <div className="text-sm text-text-secondary leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: profile.content }} />
+                        <p className="text-sm text-text-secondary leading-relaxed">{aboutText}</p>
                     </div>
                 )}
 
@@ -341,3 +352,5 @@ export default function ProfileDetailPage({ params }) {
         </div>
     );
 }
+
+

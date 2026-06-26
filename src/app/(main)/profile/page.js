@@ -181,14 +181,14 @@ export default function ProfilePage() {
             <div className="rounded-2xl p-5 text-center space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                 <div className="relative inline-block">
                     <UserAvatar name={displayName} src={profile?.avatar_url} size={80} />
-                    {verificationStatus === 'verified' && (
+                    {effectiveVerificationStatus === 'verified' && (
                         <div className="absolute -bottom-1 -right-1"><VerifiedBadge size={24} /></div>
                     )}
                 </div>
                 <div>
                     <h2 className="text-xl font-black text-text-primary flex items-center justify-center gap-1.5">
                         {displayName}
-                        {verificationStatus === 'verified' && <VerifiedBadge size={18} />}
+                        {effectiveVerificationStatus === 'verified' && <VerifiedBadge size={18} />}
                     </h2>
                     {isLoggedIn && <p className="text-xs text-text-muted">{user.email}</p>}
                     {guest && <p className="text-xs text-primary font-medium">Guest Mode</p>}
@@ -277,22 +277,22 @@ export default function ProfilePage() {
                 </div>
             )}
 
+            {isLoggedIn && effectiveVerificationStatus === 'verified' && (
+                <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'rgba(5,150,105,0.1)', border: '1px solid rgba(5,150,105,0.22)' }}>
+                    <ShieldCheck size={24} className="text-success" />
+                    <div>
+                        <p className="text-sm font-black text-success">Verification Approved</p>
+                        <p className="text-xs text-text-muted">Your blue badge was manually approved by admin.</p>
+                    </div>
+                </div>
+            )}
             {/* ===== MANUAL VERIFICATION ===== */}
             {isLoggedIn && effectiveVerificationStatus !== 'verified' && (
                 <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                         <Shield size={16} className="text-primary" /> Manual Verification
                     </h3>
-
-                    {false ? (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-success/10">
-                            <ShieldCheck size={24} className="text-success" />
-                            <div>
-                                <p className="text-sm font-bold text-success">Verified</p>
-                                <p className="text-xs text-text-muted">Your selfie, ID/passport, and phone were manually approved by admin.</p>
-                            </div>
-                        </div>
-                    ) : effectiveVerificationStatus === 'pending_admin' ? (
+                    {effectiveVerificationStatus === 'pending_admin' ? (
                         <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(124,58,237,0.08)' }}>
                             <Clock size={24} className="text-primary" />
                             <div className="flex-1">
@@ -394,10 +394,12 @@ export default function ProfilePage() {
 
                     {[
                         { key: 'notifications', label: 'Push Notifications' },
+                        { key: 'darkMode', label: 'Dark Mode' },
                         { key: 'showOnline', label: 'Show Online Status' },
                         { key: 'showAge', label: 'Show Age' },
                         { key: 'isPublic', label: 'Public Profile' },
-                        
+                        { key: 'emailNotifications', label: 'Email Updates' },
+                        { key: 'liveLocation', label: 'Live Location Matching' },
                     ].map((setting) => (
                         <div key={setting.key}
                             className="flex items-center justify-between px-4 py-3"
@@ -548,5 +550,7 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+
 
 

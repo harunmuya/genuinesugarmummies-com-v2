@@ -1,72 +1,156 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-/**
- * NotificationManager — fires OS-level push notifications (WhatsApp-style)
- * Listens for `gs-notification` custom events dispatched by AuthContext.
- * Respects user notification settings.
- */
+function formatBadge(count) {
+    if (!count) return '';
+    return count > 99 ? '99+' : String(count);
+}
+
+async function getNativeNotifications() {
+    try {
+        const [{ Capacitor }, { LocalNotifications }] = await Promise.all([
+            import('@capacitor/core'),
+            import('@capacitor/local-notifications'),
+        ]);
+        if (!Capacitor.isNativePlatform?.()) return null;
+        return LocalNotifications;
+    } catch {
+        return null;
+    }
+}
+
 export default function NotificationManager() {
-    const { settings, user, guest } = useAuth();
+    const { settings, user, guest, activity, messages } = useAuth();
     const permissionRef = useRef('default');
+    const [showPrompt, setShowPrompt] = useState(false);
 
-    // Request notification permission on mount
+    const unreadCount = useMemo(() => {
+        const unreadAlerts = (activity || []).filter((item) => !item.read).length;
+        const unreadMessages = (messages || []).filter((item) => !item.read).length;
+        return Math.min(99, unreadAlerts + unreadMessages);
+    }, [activity, messages]);
+
     useEffect(() => {
-        if (typeof window === 'undefined' || !('Notification' in window)) return;
+        if (typeof window === 'undefined') return;
+        const browserPermission = 'Notification' in window ? Notification.permission : 'default';
+        permissionRef.current = browserPermission;
+        setShowPrompt(Boolean(user && !guest && settings.notifications && browserPermission === 'default'));
+    }, [user, guest, settings.notifications]);
 
-        if (Notification.permission === 'granted') {
-            permissionRef.current = 'granted';
-        } else if (Notification.permission !== 'denied') {
-            // Wait a bit before requesting (less intrusive)
-            const timer = setTimeout(() => {
-                Notification.requestPermission().then((perm) => {
-                    permissionRef.current = perm;
-                });
-            }, 8000);
-            return () => clearTimeout(timer);
+    useEffect(() => {
+        if (typeof navigator === 'undefined') return;
+        const count = Math.max(0, unreadCount || 0);
+        if ('setAppBadge' in navigator) {
+            if (count > 0) navigator.setAppBadge(count).catch(() => {});
+            else navigator.clearAppBadge?.().catch(() => {});
         }
-    }, []);
+        if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'GS_BADGE_COUNT', count });
+        }
+        try { localStorage.setItem('gscom_badge_count', JSON.stringify({ count, label: formatBadge(count), at: Date.now() })); } catch {}
+    }, [unreadCount]);
 
-    // Listen for notification events
+    async function requestPermission() {
+        if (typeof window === 'undefined') return;
+        try {
+            const nativeNotifications = await getNativeNotifications();
+            if (nativeNotifications) {
+                const nativePerm = await nativeNotifications.requestPermissions();
+                permissionRef.current = nativePerm.display === 'granted' ? 'granted' : 'default';
+            }
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                const perm = await Notification.requestPermission();
+                permissionRef.current = perm;
+            }
+            setShowPrompt(false);
+            if (permissionRef.current === 'granted') {
+                window.dispatchEvent(new CustomEvent('gs-notification', {
+                    detail: { title: 'Notifications enabled', body: 'You will see account updates, matches, and admin messages here.', count: unreadCount },
+                }));
+            }
+        } catch {
+            setShowPrompt(false);
+        }
+    }
+
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        const handleNotification = (e) => {
-            // Only fire if user has notifications enabled and permission granted
+        const handleNotification = async (e) => {
             if (!settings.notifications) return;
-            if (!('Notification' in window) || Notification.permission !== 'granted') return;
-            // Don't notify if tab is focused (user is already looking at the app)
+            const { title, body, image, icon, count } = e.detail || {};
+            if (!title) return;
             if (document.visibilityState === 'visible') return;
 
-            const { title, body, image, icon } = e.detail || {};
-            if (!title) return;
+            const badgeCount = Math.min(99, Number(count || unreadCount || 1));
+            const nativeNotifications = await getNativeNotifications();
+            if (nativeNotifications) {
+                const perm = await nativeNotifications.checkPermissions().catch(() => ({ display: 'prompt' }));
+                if (perm.display === 'granted') {
+                    await nativeNotifications.schedule({
+                        notifications: [{
+                            id: Math.floor(Date.now() % 2147483647),
+                            title,
+                            body: body || '',
+                            largeIcon: icon || '/icons/icon-192.png',
+                            iconColor: '#0F766E',
+                            extra: { url: '/alerts', count: badgeCount, label: formatBadge(badgeCount) },
+                        }],
+                    }).catch(() => {});
+                    return;
+                }
+            }
+
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            const options = {
+                body: body || '',
+                icon: icon || '/icons/icon-192.png',
+                badge: '/icons/icon-192.png',
+                image: image || undefined,
+                tag: 'gs-account-update',
+                renotify: true,
+                vibrate: [160, 80, 160],
+                silent: false,
+                data: { url: '/alerts', count: badgeCount, label: formatBadge(badgeCount) },
+            };
 
             try {
-                const notification = new Notification(title, {
-                    body: body || '',
-                    icon: icon || '/gs-logo.png',
-                    badge: '/gs-logo.png',
-                    image: image || undefined,
-                    tag: `gs-${Date.now()}`,
-                    vibrate: [200, 100, 200],
-                    silent: false,
-                });
-
+                const reg = await navigator.serviceWorker?.ready;
+                if (reg?.showNotification) {
+                    await reg.showNotification(title, options);
+                    return;
+                }
+                const notification = new Notification(title, options);
                 notification.onclick = () => {
                     window.focus();
                     notification.close();
                 };
-
-                // Auto-close after 8 seconds
                 setTimeout(() => notification.close(), 8000);
-            } catch { }
+            } catch {}
         };
 
         window.addEventListener('gs-notification', handleNotification);
         return () => window.removeEventListener('gs-notification', handleNotification);
-    }, [settings.notifications]);
+    }, [settings.notifications, unreadCount]);
 
-    return null; // Invisible component
+    if (!showPrompt) return null;
+
+    return (
+        <button
+            type="button"
+            onClick={requestPermission}
+            className="fixed right-4 bottom-24 z-[70] flex items-center gap-2 rounded-full px-4 py-3 text-xs font-black text-white shadow-xl gradient-primary"
+            aria-label="Enable notifications"
+        >
+            <span className="relative flex h-5 w-5 items-center justify-center">
+                <Bell size={18} />
+                {unreadCount > 0 && <span className="absolute -right-2 -top-2 min-w-4 h-4 rounded-full bg-pink-500 px-1 text-[9px] leading-4">{formatBadge(unreadCount)}</span>}
+            </span>
+            Enable alerts
+        </button>
+    );
 }
+

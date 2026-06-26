@@ -1,6 +1,7 @@
 ﻿const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Genuine Sugar Mummies <feedback@genuinesugarmummies.com>';
 const BRAND_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://genuinesugarmummies.com';
-const LOGO_URL = process.env.EMAIL_LOGO_URL || `${BRAND_URL.replace(/\/$/, '')}/gs-logo.png`;
+const PUBLIC_ASSET_URL = process.env.NEXT_PUBLIC_ASSET_URL || 'https://genuinesugarmummies-com-v2.vercel.app';
+const LOGO_URL = process.env.EMAIL_LOGO_URL || `${PUBLIC_ASSET_URL.replace(/\/$/, '')}/gs-logo.png`;
 
 function escapeHtml(value = '') {
     return String(value)
@@ -122,3 +123,6 @@ export function emailHtml(title, body, options = {}) {
         </div>
     `;
 }
+
+
+

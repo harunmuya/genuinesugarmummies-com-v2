@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 
@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS = {
     showAge: true,
     emailNotifications: false,
     liveLocation: false,
+    darkMode: false,
 };
 
 // ==========================================
@@ -74,7 +75,7 @@ function computeMatchScore(profile, user, settings) {
         }
     }
 
-    // Time-based freshness â€” newer profiles score slightly higher
+    // Time-based freshness — newer profiles score slightly higher
     const profileAge = Date.now() - new Date(profile.date || Date.now()).getTime();
     if (profileAge < 7 * 86400000) score += 5; // Less than 7 days old
 
@@ -121,7 +122,7 @@ async function analyzeSelfie(selfieDataUrl, profilePicUrl) {
 
         // ---- Minimum resolution check ----
         if (selfieImg.width < 120 || selfieImg.height < 120) {
-            return { status: 'failed', reason: 'Your selfie is too small. Please upload a clear photo of at least 120Ã—120 pixels.' };
+            return { status: 'failed', reason: 'Your selfie is too small. Please upload a clear photo of at least 120×120 pixels.' };
         }
 
         const canvas = document.createElement('canvas');
@@ -248,7 +249,7 @@ async function analyzeSelfie(selfieDataUrl, profilePicUrl) {
             return { status: 'failed', reason: 'You have already submitted this selfie. Please take a new selfie for verification.' };
         }
 
-        // All checks passed â€” this looks like a real face selfie
+        // All checks passed — this looks like a real face selfie
         return { status: 'passed', reason: null };
     } catch (err) {
         return { status: 'failed', reason: 'Could not process your selfie. Please try a JPEG or PNG photo.' };
@@ -318,38 +319,6 @@ export function AuthProvider({ children }) {
         const timer = setInterval(refreshAccount, 10000);
         return () => { alive = false; clearInterval(timer); };
     }, [user?.email, loading]);
-    // ---- Moderation timer: check if review period is done ----
-    useEffect(() => {
-        if (verificationStatus !== 'moderation_review' || !verificationTimer) return;
-
-        const check = () => {
-            const remaining = verificationTimer - Date.now();
-            if (remaining <= 0) {
-                // Moderation complete â€” approve
-                setVerificationStatus('verified');
-                setStored(STORAGE_KEYS.VERIFICATION, 'verified');
-                setVerificationTimer(null);
-                setStored(STORAGE_KEYS.VERIFICATION_TIMER, null);
-                logActivity('profile_update', { title: 'Profile Verified âœ“', message: 'Your identity has been verified after moderation review! Blue badge awarded.' });
-                addMessage({
-                    type: 'verification', sender: 'GS Verification Team',
-                    senderImage: '', title: 'Profile Verified!',
-                    body: 'Congratulations! Your selfie has passed our AI analysis and moderation review. You now have a blue verification badge on your profile.',
-                });
-                // Fire notification
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('gs-notification', {
-                        detail: { title: 'Verified!', body: 'Your profile has been verified! Blue badge awarded.', icon: '/icons/shield.svg' }
-                    }));
-                }
-            }
-        };
-
-        check(); // immediate check
-        const interval = setInterval(check, 5000); // check every 5s
-        return () => clearInterval(interval);
-    }, [verificationStatus, verificationTimer]);
-
     // ---- Fetch Real Profile Pool for AI engagement ----
     useEffect(() => {
         async function loadProfilePool() {
@@ -481,7 +450,7 @@ export function AuthProvider({ children }) {
             subscription_tier: member.subscriptionTier || 'free',
             admin_approved: Boolean(member.adminApproved),
             package_locked: Boolean(member.packageLocked),
-            verification_status: member.verified ? 'verified' : (member.verificationStatus || 'pending_admin'),
+            verification_status: member.verified ? 'verified' : (member.verificationStatus || null),
             verified: Boolean(member.verified),
             preference_locked: true,
         };
@@ -620,7 +589,7 @@ export function AuthProvider({ children }) {
                 addMessage({
                     type: 'gs_support', sender: 'GS Support', senderImage: '',
                     title: 'Welcome to GenuineSugarMummies.com!',
-                    body: `Hi ${merged.display_name}! Welcome to GenuineSugarMummies.com â€” your premium connection platform. Browse profiles, like & match, then request hookup connections. Admin Mary G on Telegram @GSADMINMARYGAGENCY facilitates all connections. Enjoy!`,
+                    body: `Hi ${merged.display_name}! Welcome to GenuineSugarMummies.com — your premium connection platform. Browse profiles, like & match, then request hookup connections. Admin Mary G on Telegram @GSADMINMARYGAGENCY facilitates all connections. Enjoy!`,
                 });
             }, 2000);
         }
@@ -672,7 +641,7 @@ export function AuthProvider({ children }) {
         setUser(updated);
         setStored(STORAGE_KEYS.USER, updated);
 
-        // If primary photo deleted â†’ ALWAYS reset verification
+        // If primary photo deleted → ALWAYS reset verification
         if (removingPrimary || photos.length === 0) {
             setVerificationStatus(null);
             setVerificationTimer(null);
@@ -683,14 +652,14 @@ export function AuthProvider({ children }) {
         syncAccountToServer(updated);
             addMessage({
                 type: 'verification', sender: 'GS Verification Team', senderImage: '',
-                title: 'âš ï¸ Verification Reset',
+                title: '⚠️ Verification Reset',
                 body: 'Your profile picture was removed. Your verification badge has been revoked. Please re-verify with a new selfie.',
             });
         }
     }
 
     // ==========================================
-    // SMART AI VERIFICATION (10-min moderation)
+    // MANUAL VERIFICATION REQUEST
     // ==========================================
     async function verifyProfile(input) {
         if (!user) {
@@ -800,6 +769,11 @@ export function AuthProvider({ children }) {
         setStored(STORAGE_KEYS.VERIFICATION_SELFIE, null);
     }
 
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        document.documentElement.dataset.theme = settings.darkMode ? 'dark' : 'light';
+    }, [settings.darkMode]);
+
     // ---- Settings ----
     function updateSettings(updates) {
         const updated = { ...settings, ...updates };
@@ -845,7 +819,7 @@ export function AuthProvider({ children }) {
                     const d = Math.sqrt((pos.coords.latitude - c.lat) ** 2 + (pos.coords.longitude - c.lng) ** 2);
                     if (d < c.r) { locData.city = c.name; break; }
                 }
-                if (!locData.city) locData.city = `${pos.coords.latitude.toFixed(2)}Â°, ${pos.coords.longitude.toFixed(2)}Â°`;
+                if (!locData.city) locData.city = `${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°`;
                 setLiveLocationData(locData);
                 setStored(STORAGE_KEYS.LIVE_LOCATION, locData);
             },
@@ -1007,12 +981,12 @@ export function AuthProvider({ children }) {
                         setStored(STORAGE_KEYS.LAST_POST_ID, latestId);
                         logActivity('new_post', {
                             title: `New profile: ${newProfile.name || 'New Sugar Mummy'}`,
-                            message: `${newProfile.location || 'Check it out'} â€” Just posted!`,
+                            message: `${newProfile.location || 'Check it out'} — Just posted!`,
                             image: newProfile.imageUrl, profileId: newProfile.wpId,
                         });
                         addMessage({
                             type: 'subscription_update', sender: 'GS Updates', senderImage: '',
-                            title: `ðŸ“¢ New Profile: ${newProfile.name}`,
+                            title: `📢 New Profile: ${newProfile.name}`,
                             body: `A new profile just dropped! ${newProfile.name} from ${newProfile.location || 'Kenya'}. Check it out now.`,
                             profileId: newProfile.wpId,
                         });
@@ -1066,6 +1040,8 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
+
 
 
 

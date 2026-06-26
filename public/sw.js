@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'gscom-cache-v3';
+﻿const CACHE_NAME = 'gscom-cache-v4';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
@@ -19,10 +19,36 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
+self.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'GS_BADGE_COUNT') {
+        const count = Math.max(0, Math.min(99, Number(data.count || 0)));
+        if (self.navigator?.setAppBadge) {
+            if (count > 0) self.navigator.setAppBadge(count).catch(() => {});
+            else self.navigator.clearAppBadge?.().catch(() => {});
+        }
+    }
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const targetUrl = new URL(event.notification?.data?.url || '/alerts', self.location.origin).href;
+    event.waitUntil((async () => {
+        const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of list) {
+            if ('focus' in client) {
+                await client.focus();
+                if ('navigate' in client) await client.navigate(targetUrl);
+                return;
+            }
+        }
+        if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
+    })());
+});
+
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Never cache Next/Vercel build assets or API responses. Stale chunks can keep the app stuck on the splash screen.
     if (url.pathname.startsWith('/_next/') || url.pathname.startsWith('/api/') || url.hostname.includes('vercel')) {
         event.respondWith(fetch(event.request));
         return;

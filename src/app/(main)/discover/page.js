@@ -177,7 +177,7 @@ export default function DiscoverPage() {
                 if (access.canRevealPhone && user?.id) memberParams.set('viewer_id', user.id);
                 const [membersRes, wpRes] = await Promise.allSettled([
                     fetch(`/api/members?${memberParams.toString()}`),
-                    fetch('/api/profiles?page=1&per_page=80'),
+                    fetch('/api/profiles?random=1&per_page=100'),
                 ]);
                 const memberData = membersRes.status === 'fulfilled' ? await membersRes.value.json().catch(() => ({})) : {};
                 const wpData = wpRes.status === 'fulfilled' ? await wpRes.value.json().catch(() => ({})) : {};
@@ -185,9 +185,9 @@ export default function DiscoverPage() {
                 const wpDeck = (wpData.profiles || []).filter((profile) => profile.imageUrl).map(normalizeWpProfile);
                 const byKey = new Map();
                 [...memberDeck, ...wpDeck].forEach((item) => {
-                    if (item.swipeKey && !byKey.has(item.swipeKey)) byKey.set(item.swipeKey, item);
+                    if (item.swipeKey && !byKey.has(item.swipeKey)) byKey.set(item.swipeKey, { ...item, randomRank: Math.random() });
                 });
-                setMembers(Array.from(byKey.values()));
+                setMembers(Array.from(byKey.values()).sort((a, b) => a.randomRank - b.randomRank));
             } catch {
                 setNotice('Profiles are temporarily unavailable.');
             } finally {
@@ -202,7 +202,11 @@ export default function DiscoverPage() {
             .filter((member) => member.swipeKey !== `member:${user?.id}`)
             .filter((member) => profileFitsUser(member, user))
             .filter((member) => !isProfileSwiped(member.swipeKey))
-            .sort((a, b) => matchScore(b, user) - matchScore(a, user));
+            .sort((a, b) => {
+                const scoreGap = matchScore(b, user) - matchScore(a, user);
+                if (Math.abs(scoreGap) > 18) return scoreGap;
+                return (a.randomRank || 0) - (b.randomRank || 0);
+            });
     }, [members, user, isProfileSwiped]);
 
     const current = available[0];
@@ -339,3 +343,4 @@ export default function DiscoverPage() {
         </div>
     );
 }
+

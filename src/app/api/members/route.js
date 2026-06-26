@@ -296,7 +296,7 @@ function accountPayload(body, { fullSchema = true } = {}) {
         profile_label: profileLabel,
         subscription_tier: String(body.subscription_tier || 'free').slice(0, 40),
         verified: false,
-        verification_status: 'pending_admin',
+        verification_status: body.verification_submitted_at ? 'pending_admin' : 'unsubmitted',
         show_in_public: body.show_in_public === false ? false : Boolean(avatar && body.bio && body.age && body.location),
         is_banned: false,
         is_suspended: false,
@@ -703,6 +703,7 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
 }
+
 
 
 

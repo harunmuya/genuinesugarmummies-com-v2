@@ -30,6 +30,24 @@
   --card-border: 1px solid rgba(15, 118, 110, 0.08);
 }
 
+
+:root[data-theme="dark"] {
+  --color-bg-dark: #071312;
+  --color-bg-card: #0f1f1d;
+  --color-bg-input: #102824;
+  --color-surface: #112f2b;
+  --color-surface-light: #16413b;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #d7f3ef;
+  --color-text-muted: #94a3b8;
+  --card-border: 1px solid rgba(94, 234, 212, 0.14);
+  --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .glass {
+  background: rgba(15, 31, 29, 0.9);
+}
 /* ---- Theme utility classes ---- */
 @layer utilities {
   .bg-primary {
@@ -357,3 +375,4 @@ body {
   background: rgba(15, 118, 110, 0.2);
   color: var(--color-text-primary);
 }
+
