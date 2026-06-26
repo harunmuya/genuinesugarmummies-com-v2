@@ -33,6 +33,12 @@ const nextConfig = {
         ],
     },
 
+    async rewrites() {
+        return [
+            { source: '/base-release.apk', destination: '/downloads/genuine-sugar-mummies.apk' },
+            { source: '/base-realese.apk', destination: '/downloads/genuine-sugar-mummies.apk' },
+        ];
+    },
     // Security headers
     async headers() {
         return [
@@ -85,4 +91,5 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
 
