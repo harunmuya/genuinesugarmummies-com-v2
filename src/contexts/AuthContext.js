@@ -920,11 +920,12 @@ export function AuthProvider({ children }) {
             setStored(STORAGE_KEYS.PASSES, updated);
             return updated;
         });
-        if (user?.id && profileWpId) {
+        const memberId = String(profileWpId || '').startsWith('member:') ? String(profileWpId).slice(7) : '';
+        if (user?.id && memberId) {
             fetch('/api/members', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'swipe_pass', memberId: profileWpId, actorUserId: user.id }),
+                body: JSON.stringify({ action: 'swipe_pass', memberId, actorUserId: user.id }),
             }).catch(() => {});
         }
     }, [user?.id]);
@@ -1065,6 +1066,7 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
 
 
 

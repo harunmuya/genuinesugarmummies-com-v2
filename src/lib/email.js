@@ -1,4 +1,6 @@
-const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Genuine Sugar Mummies <onboarding@resend.dev>';
+﻿const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Genuine Sugar Mummies <feedback@genuinesugarmummies.com>';
+const BRAND_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://genuinesugarmummies.com';
+const LOGO_URL = process.env.EMAIL_LOGO_URL || `${BRAND_URL.replace(/\/$/, '')}/gs-logo.png`;
 
 function escapeHtml(value = '') {
     return String(value)
@@ -11,6 +13,10 @@ function escapeHtml(value = '') {
 
 function textToHtml(text = '') {
     return `<p>${escapeHtml(text).replace(/\n/g, '<br />')}</p>`;
+}
+
+function looksLikeHtml(value = '') {
+    return /<\/?[a-z][\s\S]*>/i.test(String(value || ''));
 }
 
 export async function sendEmail({ to, subject, html, text, from = DEFAULT_FROM }) {
@@ -77,12 +83,42 @@ export async function sendAndLogEmail(supabase, payload) {
     return { ...result, outboxId };
 }
 
-export function emailHtml(title, body) {
+export function emailHtml(title, body, options = {}) {
+    const safeTitle = escapeHtml(title || 'Genuine Sugar Mummies');
+    const content = looksLikeHtml(body) ? String(body) : textToHtml(body || '');
+    const preview = escapeHtml(options.preview || title || 'Genuine Sugar Mummies update');
+    const action = options.actionUrl && options.actionLabel
+        ? `<a href="${escapeHtml(options.actionUrl)}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:800;border-radius:14px;padding:13px 18px;margin-top:8px">${escapeHtml(options.actionLabel)}</a>`
+        : '';
+
     return `
-        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:620px;margin:0 auto;padding:24px">
-            <h1 style="font-size:22px;margin:0 0 12px;color:#0f766e">${escapeHtml(title)}</h1>
-            <div style="font-size:15px">${textToHtml(body)}</div>
-            <p style="font-size:12px;color:#6b7280;margin-top:24px">Genuine Sugar Mummies Admin</p>
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${preview}</div>
+        <div style="margin:0;padding:0;background:#f4fbf9;font-family:Arial,Helvetica,sans-serif;color:#111827">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4fbf9;padding:26px 12px">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #dbeafe;border-radius:22px;overflow:hidden;box-shadow:0 14px 40px rgba(15,118,110,0.12)">
+                            <tr>
+                                <td style="padding:24px 24px 14px;background:linear-gradient(135deg,#ecfeff,#fff7ed)">
+                                    <img src="${escapeHtml(LOGO_URL)}" alt="Genuine Sugar Mummies" width="92" style="display:block;width:92px;height:auto;margin:0 auto 12px" />
+                                    <h1 style="font-size:24px;line-height:1.2;margin:0;text-align:center;color:#0f172a;font-weight:900">${safeTitle}</h1>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding:24px;font-size:15px;line-height:1.65;color:#1f2937">
+                                    ${content}
+                                    ${action}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding:18px 24px;background:#0f766e;color:#ffffff;text-align:center;font-size:12px;line-height:1.5">
+                                    Genuine Sugar Mummies<br />Secure account updates, support messages, and package notifications.
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
         </div>
     `;
 }
