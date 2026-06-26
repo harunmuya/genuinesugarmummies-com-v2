@@ -26,6 +26,7 @@ function packageAccess(user) {
         canRevealPhone: active && ['silver', 'gold', 'diamond'].includes(current),
         swipeLimit: current === 'free' ? 3 : current === 'basic' ? 10 : current === 'silver' ? 40 : 100,
         likeLimit: current === 'free' ? 3 : current === 'basic' ? 10 : current === 'silver' ? 40 : 100,
+        superLikeLimit: current === 'free' ? 1 : current === 'basic' ? 3 : current === 'silver' ? 10 : 25,
     };
 }
 
@@ -70,7 +71,7 @@ function matchScore(member, user) {
 
 export default function DiscoverPage() {
     const router = useRouter();
-    const { user, guest, addLike, addMatch, addPass, isProfileSwiped, clearSwipeHistory, addMessage } = useAuth();
+    const { user, guest, addLike, addSuperLike, addMatch, addPass, isProfileSwiped, clearSwipeHistory, addMessage } = useAuth();
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [direction, setDirection] = useState(null);
@@ -125,10 +126,9 @@ export default function DiscoverPage() {
 
     function enforceLimit(kind) {
         const usage = todayUsage();
-        const limit = kind === 'likes' ? access.likeLimit : access.swipeLimit;
+        const limit = kind === 'superlikes' ? access.superLikeLimit : kind === 'likes' ? access.likeLimit : access.swipeLimit;
         if ((usage[kind] || 0) >= limit) {
-            setNotice(`${kind === 'likes' ? 'Like' : 'Swipe'} limit reached. Upgrade your package to continue.`);
-            router.push('/packages');
+            setNotice(`${kind === 'superlikes' ? 'Super like' : kind === 'likes' ? 'Like' : 'Swipe'} limit reached for today. Upgrade your package to continue.`);
             return false;
         }
         const next = { ...usage, [kind]: (usage[kind] || 0) + 1 };
@@ -161,6 +161,19 @@ export default function DiscoverPage() {
         const score = matchScore(current, user);
         if (score >= 93) addMatch(profile, score);
         addMessage?.({ type: 'like', sender: 'You', title: `You liked ${current.name}`, body: `${score}% compatibility. Keep interacting to turn this into a stronger match.`, memberId: current.id, senderImage: current.avatarUrl });
+        setTimeout(() => { addPass(current.id); setDirection(null); }, 220);
+    }
+
+    function handleSuperLike() {
+        if (!current) return;
+        if (guest || !user) { router.push('/auth/login'); return; }
+        if (!enforceLimit('superlikes')) return;
+        setDirection('right');
+        const profile = normalizedForAuth(current);
+        addSuperLike(profile);
+        const score = Math.min(99, matchScore(current, user) + 5);
+        if (score >= 88) addMatch(profile, score);
+        addMessage?.({ type: 'superlike', sender: 'You', title: `You super liked ${current.name}`, body: `${score}% compatibility. This profile was added to your priority interactions.`, memberId: current.id, senderImage: current.avatarUrl });
         setTimeout(() => { addPass(current.id); setDirection(null); }, 220);
     }
 
@@ -198,8 +211,8 @@ export default function DiscoverPage() {
             <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '3/4' }}>
                 <AnimatePresence mode="popLayout">
                     <motion.article key={current.id} className="absolute inset-0 rounded-[22px] overflow-hidden card-shadow bg-white" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.6} onDragEnd={(_, info) => { if (info.offset.x > 100) handleLike(); else if (info.offset.x < -100) handlePass(); }} initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ x: direction === 'right' ? 260 : direction === 'left' ? -260 : 0, opacity: 0, transition: { duration: 0.22 } }}>
-                        {current.avatarUrl ? <img src={current.avatarUrl} alt={current.name} className={`absolute inset-0 w-full h-full object-cover ${access.canBrowseImages ? '' : 'blur-xl scale-110'}`} /> : <div className="absolute inset-0 flex items-center justify-center bg-primary/10"><UserAvatar name={current.name} size={120} /></div>}
-                        {!access.canBrowseImages && <div className="absolute inset-0 bg-white/45 flex items-center justify-center"><div className="rounded-2xl px-4 py-3 bg-white/90 text-center shadow"><Lock size={20} className="mx-auto text-primary mb-1" /><p className="text-xs font-black text-text-primary">Upgrade to view photos</p></div></div>}
+                        {current.avatarUrl ? <img src={current.avatarUrl} alt={current.name} className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center bg-primary/10"><UserAvatar name={current.name} size={120} /></div>}
+
                         <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/20 to-transparent" />
                         <motion.div className="absolute top-7 left-5 px-4 py-2 rounded-xl border-4 border-success text-success font-black text-2xl -rotate-12 bg-white/80" style={{ opacity: likeOpacity }}>LIKE</motion.div>
                         <motion.div className="absolute top-7 right-5 px-4 py-2 rounded-xl border-4 border-danger text-danger font-black text-2xl rotate-12 bg-white/80" style={{ opacity: nopeOpacity }}>PASS</motion.div>
@@ -222,7 +235,7 @@ export default function DiscoverPage() {
             <div className="grid grid-cols-5 gap-3 max-w-sm mx-auto">
                 <button onClick={handlePass} className="h-12 rounded-2xl bg-danger/10 text-danger flex items-center justify-center"><X size={24} /></button>
                 <button onClick={handleView} className="h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><Eye size={20} /></button>
-                <button onClick={() => router.push('/packages')} className="h-12 rounded-2xl bg-amber-100 text-gold flex items-center justify-center"><Star size={20} /></button>
+                <button onClick={handleSuperLike} className="h-12 rounded-2xl bg-amber-100 text-gold flex items-center justify-center"><Star size={20} fill="currentColor" /></button>
                 <Link href={access.canBrowseImages ? `/members/${current.id}#message` : '/packages'} className="h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center"><MessageCircle size={20} /></Link>
                 <button onClick={handleLike} className="h-12 rounded-2xl gradient-primary text-white flex items-center justify-center"><Heart size={23} fill="white" /></button>
             </div>
@@ -231,3 +244,6 @@ export default function DiscoverPage() {
         </div>
     );
 }
+
+
+

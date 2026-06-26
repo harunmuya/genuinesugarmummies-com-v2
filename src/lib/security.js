@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+﻿import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const PASSWORD_PREFIX = 'scrypt';
 
@@ -21,30 +21,12 @@ export function verifyPassword(password, storedHash) {
     return timingSafeEqual(expected, actual);
 }
 
-export async function verifyRecaptcha(token, expectedAction = '') {
-    if (token === 'bypass') {
-        return { ok: true, data: { success: true } };
-    }
-    const secret = process.env.RECAPTCHA_SECRET_KEY;
-    if (!secret) return { ok: false, error: 'RECAPTCHA_SECRET_KEY is not configured.' };
-    if (!token) return { ok: false, error: 'reCAPTCHA verification is required.' };
+export function createResetCode() {
+    return String(randomInt(100000, 1000000));
+}
 
-    const form = new URLSearchParams();
-    form.set('secret', secret);
-    form.set('response', token);
-
-    try {
-        const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: form.toString(),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!data.success) return { ok: false, error: 'reCAPTCHA failed.', data };
-        if (expectedAction && data.action && data.action !== expectedAction) return { ok: false, error: 'Invalid reCAPTCHA action.', data };
-        if (typeof data.score === 'number' && data.score < 0.3) return { ok: false, error: 'reCAPTCHA score too low.', data };
-        return { ok: true, data };
-    } catch (error) {
-        return { ok: false, error: error.message || 'reCAPTCHA failed.' };
-    }
+export function hashResetCode(email, code) {
+    return createHash('sha256')
+        .update(`${String(email || '').trim().toLowerCase()}:${String(code || '').trim()}`)
+        .digest('hex');
 }

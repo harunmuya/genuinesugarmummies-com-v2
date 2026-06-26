@@ -1,4 +1,4 @@
-/** @type {import('next').NextConfig} */
+﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
     turbopack: {
         root: __dirname,
@@ -67,12 +67,12 @@ const nextConfig = {
                         key: 'Content-Security-Policy',
                         value: [
                             "default-src 'self'",
-                            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
+                            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com",
                             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                             "font-src 'self' https://fonts.gstatic.com",
                             "img-src 'self' data: blob: https:",
-                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com https://tislsfajzqcctjcrmnlg.supabase.co https://rmsvyhfpiytcffjkozje.supabase.co https://t.me https://www.google.com/recaptcha/",
-                            "frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
+                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com https://tislsfajzqcctjcrmnlg.supabase.co https://rmsvyhfpiytcffjkozje.supabase.co https://xiqfrvjasvcwywdyszta.supabase.co https://t.me",
+                            "frame-src 'self'",
                             "frame-ancestors 'none'",
                             "base-uri 'self'",
                             "form-action 'self'",
@@ -85,3 +85,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+

@@ -1,0 +1,13 @@
+﻿{
+  "appId": "com.genuinesugarmummies.app",
+  "appName": "Genuine Sugar Mummies",
+  "webDir": "public",
+  "server": {
+    "url": "https://genuinesugarmummies-com-v2.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  }
+}

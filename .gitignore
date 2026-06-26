@@ -1,4 +1,4 @@
-# dependencies
+﻿# dependencies
 /node_modules
 /.pnp
 .pnp.js
@@ -26,3 +26,6 @@ npm-debug.log*
 
 .cursor/
 /pics to be seeded/
+/android/keystores/
+
+

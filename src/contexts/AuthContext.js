@@ -426,7 +426,7 @@ export function AuthProvider({ children }) {
             const res = await fetch('/api/members', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'upsert_account', ...account, password: auth.password, recaptchaToken: auth.recaptchaToken }),
+                body: JSON.stringify({ action: 'upsert_account', ...account, password: auth.password }),
             });
             const data = await res.json();
             if (!res.ok || !data.member) return null;
@@ -515,13 +515,13 @@ export function AuthProvider({ children }) {
         } catch {}
     }
 
-    async function signInExisting(email, password, recaptchaToken) {
+    async function signInExisting(email, password) {
         const cleanEmail = String(email || '').trim().toLowerCase();
         if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('Enter a valid email address.');
         const res = await fetch('/api/members', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'login_account', email: cleanEmail, password, recaptchaToken }),
+            body: JSON.stringify({ action: 'login_account', email: cleanEmail, password }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.member) throw new Error(data.error || 'Could not sign in.');
@@ -538,8 +538,44 @@ export function AuthProvider({ children }) {
         return account;
     }
 
+
+    async function requestPasswordReset(email) {
+        const cleanEmail = String(email || '').trim().toLowerCase();
+        if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('Enter the email on your account.');
+        const res = await fetch('/api/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'request_password_reset', email: cleanEmail }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not send reset code.');
+        setStored(STORAGE_KEYS.LOGIN_EMAIL, cleanEmail);
+        return data;
+    }
+
+    async function resetPassword(email, code, password) {
+        const cleanEmail = String(email || '').trim().toLowerCase();
+        if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('Enter the email on your account.');
+        if (!/^\d{6}$/.test(String(code || '').trim())) throw new Error('Enter the 6-digit reset code.');
+        if (String(password || '').length < 6) throw new Error('New password must be at least 6 characters.');
+        const res = await fetch('/api/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reset_password', email: cleanEmail, code: String(code).trim(), password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.member) throw new Error(data.error || 'Could not reset password.');
+        const account = accountFromMember(data.member, cleanEmail);
+        setUser(account);
+        setGuest(false);
+        setStored(STORAGE_KEYS.USER, account);
+        setStored(STORAGE_KEYS.LOGIN_EMAIL, cleanEmail);
+        setStored(STORAGE_KEYS.GUEST, false);
+        logActivity('security', { title: 'Password reset', message: 'Your password was changed successfully.' });
+        return account;
+    }
     // ---- Auth Methods ----
-    async function signIn(email, password, displayName, userPreference, recaptchaToken) {
+    async function signIn(email, password, displayName, userPreference) {
         const intentMap = {
             sugar_mummy_looking_for_toyboy: { profile_label: 'sugar_mummy', looking_for: 'Sugar Guy / Toyboy', intent_summary: 'I am a sugar mummy looking for a sugar guy / toyboy.' },
             sugar_daddy_looking_for_mistress: { profile_label: 'sugar_daddy', looking_for: 'Mistress', intent_summary: 'I am a sugar daddy looking for an adult mistress.' },
@@ -569,11 +605,11 @@ export function AuthProvider({ children }) {
         setStored(STORAGE_KEYS.GUEST, false);
         setStored(STORAGE_KEYS.PREFERENCE, merged.preference);
         logActivity('login', { title: 'Signed in', message: `Welcome back, ${merged.display_name}!` });
-        const synced = await syncAccountToServer(merged, { password, recaptchaToken });
+        const synced = await syncAccountToServer(merged, { password });
         if (!synced) {
             setUser(null);
             setStored(STORAGE_KEYS.USER, null);
-            throw new Error('Could not create account. Check your email, password, and reCAPTCHA, then try again.');
+            throw new Error('Could not create account. Check your email and password, then try again.');
         }
         loadAccountInbox(synced);
 
@@ -857,8 +893,15 @@ export function AuthProvider({ children }) {
             setStored(STORAGE_KEYS.LIKES, updated);
             return updated;
         });
+        if (user?.id && profile?.id) {
+            fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'like', memberId: profile.id, actorUserId: user.id, senderName: user.display_name || user.email }),
+            }).catch(() => {});
+        }
         logActivity('like', { title: `You liked ${profile.name || 'someone'}`, message: profile.location || '', image: profile.imageUrl, profileId: profile.wpId });
-    }, [logActivity]);
+    }, [logActivity, user?.id, user?.display_name, user?.email]);
 
     const addMatch = useCallback((profile, score = 85) => {
         setMatches(prev => {
@@ -877,7 +920,14 @@ export function AuthProvider({ children }) {
             setStored(STORAGE_KEYS.PASSES, updated);
             return updated;
         });
-    }, []);
+        if (user?.id && profileWpId) {
+            fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'swipe_pass', memberId: profileWpId, actorUserId: user.id }),
+            }).catch(() => {});
+        }
+    }, [user?.id]);
 
     const isProfileSwiped = useCallback((wpId) => {
         return likes.some(l => l.wpId === wpId) || passes.includes(wpId);
@@ -912,8 +962,15 @@ export function AuthProvider({ children }) {
             setStored(STORAGE_KEYS.LIKES, updated);
             return updated;
         });
-        logActivity('like', { title: `You super liked ${profile.name || 'someone'}`, message: `${profile.location || ''} â€” Super Like!`, image: profile.imageUrl, profileId: profile.wpId });
-    }, [logActivity]);
+        if (user?.id && profile?.id) {
+            fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'superlike', memberId: profile.id, actorUserId: user.id, senderName: user.display_name || user.email }),
+            }).catch(() => {});
+        }
+        logActivity('like', { title: `You super liked ${profile.name || 'someone'}`, message: `${profile.location || ''} - Super Like!`, image: profile.imageUrl, profileId: profile.wpId });
+    }, [logActivity, user?.id, user?.display_name, user?.email]);
 
     // ---- Request Connection ----
     const requestConnection = useCallback((profileName, profileId) => {
@@ -990,7 +1047,7 @@ export function AuthProvider({ children }) {
         likes, matches, saved, activity, settings,
         messages, verificationStatus, verificationTimer, realProfilePool,
         preference, subscribed, liveLocationData,
-        signIn, signInExisting, signOut, skipLogin,
+        signIn, signInExisting, requestPasswordReset, resetPassword, signOut, skipLogin,
         updateProfile, addPhoto, removePhoto,
         updateSettings, updatePreference, toggleSubscription,
         addLike, addMatch, addPass, isProfileSwiped, addSuperLike, clearSwipeHistory,
@@ -1008,6 +1065,7 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
 
 
 

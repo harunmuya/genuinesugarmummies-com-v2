@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
 import { emailHtml, sendAndLogEmail } from '@/lib/email';
-import { hashPassword, verifyPassword, verifyRecaptcha } from '@/lib/security';
+import { hashPassword, verifyPassword, createResetCode, hashResetCode } from '@/lib/security';
 
 const FULL_MEMBER_FIELDS = `
     id,
@@ -384,13 +384,79 @@ export async function POST(request) {
         if (!result.data) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
         return NextResponse.json({ ok: true, member: normalizeMember(result.data, { canViewPhone: false }) });
     }
+    if (action === 'request_password_reset') {
+        const email = String(body.email || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
+
+        const { data: account, error: accountError } = await supabase
+            .from('users')
+            .select('id, email, display_name')
+            .eq('email', email)
+            .maybeSingle();
+        if (accountError) return NextResponse.json({ error: accountError.message }, { status: 500 });
+
+        if (!account?.id) {
+            return NextResponse.json({ ok: true, message: 'If an account exists, a reset code has been sent.' });
+        }
+
+        const code = createResetCode();
+        const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+        const payload = {
+            user_id: account.id,
+            email,
+            code_hash: hashResetCode(email, code),
+            expires_at: expiresAt,
+        };
+        const inserted = await supabase.from('password_reset_codes').insert(payload);
+        if (inserted.error && inserted.error.code !== 'PGRST205') return NextResponse.json({ error: inserted.error.message }, { status: 500 });
+        if (inserted.error?.code === 'PGRST205') return NextResponse.json({ error: 'Password reset table is missing. Run the latest SQL migration.' }, { status: 500 });
+
+        const title = 'Reset your Genuine Sugar Mummies password';
+        const text = `Your password reset code is ${code}. It expires in 20 minutes.`;
+        await sendAndLogEmail(supabase, {
+            to: email,
+            subject: title,
+            text,
+            html: emailHtml(title, `<p>Use this reset code:</p><h2 style="letter-spacing:4px">${code}</h2><p>This code expires in 20 minutes.</p>`),
+        });
+        try { await supabase.from('admin_logs').insert({ action: 'password_reset_requested', details: { userId: account.id, email } }); } catch {}
+        return NextResponse.json({ ok: true, message: 'Reset code sent to your email.' });
+    }
+
+    if (action === 'reset_password') {
+        const email = String(body.email || '').trim().toLowerCase();
+        const code = String(body.code || '').trim();
+        const password = String(body.password || '');
+        if (!email || !email.includes('@')) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
+        if (!/^\d{6}$/.test(code)) return NextResponse.json({ error: 'Enter the 6-digit reset code.' }, { status: 400 });
+        if (password.length < 6) return NextResponse.json({ error: 'New password must be at least 6 characters.' }, { status: 400 });
+
+        const codeHash = hashResetCode(email, code);
+        const codeResult = await supabase
+            .from('password_reset_codes')
+            .select('id, user_id, expires_at, used_at')
+            .eq('email', email)
+            .eq('code_hash', codeHash)
+            .is('used_at', null)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (codeResult.error && codeResult.error.code !== 'PGRST116') return NextResponse.json({ error: codeResult.error.message }, { status: 500 });
+        if (!codeResult.data?.id) return NextResponse.json({ error: 'Invalid or expired reset code.' }, { status: 400 });
+
+        const patch = { password_hash: hashPassword(password), password_updated_at: new Date().toISOString() };
+        const updated = await supabase.from('users').update(patch).eq('id', codeResult.data.user_id).select(FULL_MEMBER_FIELDS).maybeSingle();
+        if (updated.error) return NextResponse.json({ error: updated.error.message }, { status: 500 });
+        await supabase.from('password_reset_codes').update({ used_at: new Date().toISOString() }).eq('id', codeResult.data.id);
+        try { await supabase.from('user_notifications').insert({ user_id: codeResult.data.user_id, type: 'security', title: 'Password changed', body: 'Your password was reset successfully.' }); } catch {}
+        return NextResponse.json({ ok: true, member: normalizeMember(updated.data, { canViewPhone: true }) });
+    }
     if (action === 'login_account') {
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');
         if (!email || !email.includes('@')) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
         if (password.length < 6) return NextResponse.json({ error: 'Password is required.' }, { status: 400 });
-        const captcha = await verifyRecaptcha(body.recaptchaToken, 'login');
-        if (!captcha.ok) return NextResponse.json({ error: captcha.error }, { status: 400 });
 
         let result = await supabase
             .from('users')
@@ -419,8 +485,6 @@ export async function POST(request) {
         const isProfileUpdate = Boolean(existingAccount.data?.id && body.id === existingAccount.data.id && !body.password);
         if (!isProfileUpdate) {
             if (String(body.password || '').length < 6) return NextResponse.json({ error: 'Create a password with at least 6 characters.' }, { status: 400 });
-            const captcha = await verifyRecaptcha(body.recaptchaToken, 'signup');
-            if (!captcha.ok) return NextResponse.json({ error: captcha.error }, { status: 400 });
             if (existingAccount.data?.password_hash) return NextResponse.json({ error: 'This email already has an account. Please sign in.' }, { status: 409 });
         }
         let payload = accountPayload(body, { fullSchema: true });
@@ -534,6 +598,39 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Missing action or memberId.' }, { status: 400 });
     }
 
+    if (action === 'like' || action === 'superlike') {
+        const actorUserId = body.actorUserId || body.likerId || null;
+        if (!memberId || !actorUserId) return NextResponse.json({ error: 'Signed-in user and member are required.' }, { status: 400 });
+        if (memberId === actorUserId) return NextResponse.json({ error: 'You cannot like your own profile.' }, { status: 400 });
+        const result = await supabase.from('member_likes').upsert({
+            liker_id: actorUserId,
+            liked_id: memberId,
+            is_super_like: action === 'superlike',
+        }, { onConflict: 'liker_id,liked_id' });
+        if (result.error && result.error.code !== 'PGRST205') return NextResponse.json({ error: result.error.message }, { status: 500 });
+        try {
+            await supabase.from('user_notifications').insert({
+                user_id: memberId,
+                type: action,
+                title: action === 'superlike' ? 'New super like' : 'New like',
+                body: `${String(body.senderName || 'Someone').slice(0, 80)} ${action === 'superlike' ? 'super liked' : 'liked'} your profile.`,
+                metadata: { actorUserId },
+            });
+        } catch {}
+        return NextResponse.json({ ok: true, persisted: !result.error });
+    }
+
+    if (action === 'swipe_pass') {
+        const actorUserId = body.actorUserId || null;
+        if (!memberId || !actorUserId) return NextResponse.json({ error: 'Signed-in user and member are required.' }, { status: 400 });
+        const result = await supabase.from('member_swipes').upsert({
+            swiper_id: actorUserId,
+            swiped_id: memberId,
+            direction: 'pass',
+        }, { onConflict: 'swiper_id,swiped_id' });
+        if (result.error && result.error.code !== 'PGRST205') return NextResponse.json({ error: result.error.message }, { status: 500 });
+        return NextResponse.json({ ok: true, persisted: !result.error });
+    }
     if (action === 'view') {
         const result = await incrementUserCounter(supabase, memberId, 'total_profile_views');
         if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
@@ -606,6 +703,8 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
 }
+
+
 
 
 
