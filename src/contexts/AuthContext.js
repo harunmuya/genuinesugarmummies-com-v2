@@ -313,6 +313,7 @@ export function AuthProvider({ children }) {
                 setStored(STORAGE_KEYS.USER, account);
                 setStored(STORAGE_KEYS.VERIFICATION, account.verification_status || null);
                 loadAccountInbox(account);
+                loadRemoteSettings(account);
             } catch {}
         }
         refreshAccount();
@@ -484,6 +485,30 @@ export function AuthProvider({ children }) {
         } catch {}
     }
 
+    function applyRemoteSettings(remoteSettings) {
+        if (!remoteSettings || typeof remoteSettings !== 'object') return null;
+        const merged = { ...DEFAULT_SETTINGS, ...getStored(STORAGE_KEYS.SETTINGS, {}), ...remoteSettings };
+        setSettings(merged);
+        setStored(STORAGE_KEYS.SETTINGS, merged);
+        return merged;
+    }
+
+    async function loadRemoteSettings(account) {
+        if (!account?.email && !account?.id) return null;
+        try {
+            const res = await fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'account_settings', memberId: account.id, email: account.email }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.settings) return null;
+            return applyRemoteSettings(data.settings);
+        } catch {
+            return null;
+        }
+    }
+
     async function signInExisting(email, password) {
         const cleanEmail = String(email || '').trim().toLowerCase();
         if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('Enter a valid email address.');
@@ -541,6 +566,7 @@ export function AuthProvider({ children }) {
         setStored(STORAGE_KEYS.LOGIN_EMAIL, cleanEmail);
         setStored(STORAGE_KEYS.GUEST, false);
         logActivity('security', { title: 'Password reset', message: 'Your password was changed successfully.' });
+        loadRemoteSettings(account);
         return account;
     }
     // ---- Auth Methods ----
@@ -581,6 +607,7 @@ export function AuthProvider({ children }) {
             throw new Error('Could not create account. Check your email and password, then try again.');
         }
         loadAccountInbox(synced);
+        loadRemoteSettings(synced);
 
         // Welcome message (first sign-in only)
         const existingMessages = getStored(STORAGE_KEYS.MESSAGES, []);
@@ -779,6 +806,19 @@ export function AuthProvider({ children }) {
         const updated = { ...settings, ...updates };
         setSettings(updated);
         setStored(STORAGE_KEYS.SETTINGS, updated);
+
+        if (user?.email || user?.id) {
+            fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_settings', memberId: user.id, email: user.email, settings: updated }),
+            })
+                .then((res) => res.json().catch(() => ({})).then((data) => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.settings) applyRemoteSettings(data.settings);
+                })
+                .catch(() => {});
+        }
 
         // Live location toggle
         if ('liveLocation' in updates) {

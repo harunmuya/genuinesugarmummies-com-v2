@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
 import { emailHtml, sendAndLogEmail } from '@/lib/email';
 import { hashPassword, verifyPassword, createResetCode, hashResetCode } from '@/lib/security';
@@ -81,6 +81,64 @@ const BASIC_MEMBER_FIELDS = `
 
 const UNLOCKED_PLANS = new Set(['silver', 'gold', 'diamond']);
 
+function booleanSetting(value, fallback) {
+    if (typeof value === 'boolean') return value;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return fallback;
+}
+
+function settingsPayload(input = {}) {
+    const source = input.settings && typeof input.settings === 'object' ? input.settings : input;
+    return {
+        notifications: booleanSetting(source.notifications, true),
+        email_notifications: booleanSetting(source.emailNotifications ?? source.email_notifications, false),
+        dark_mode: booleanSetting(source.darkMode ?? source.dark_mode, false),
+        show_online: booleanSetting(source.showOnline ?? source.show_online, true),
+        show_age: booleanSetting(source.showAge ?? source.show_age, true),
+        is_public: booleanSetting(source.isPublic ?? source.is_public, true),
+        live_location: booleanSetting(source.liveLocation ?? source.live_location, false),
+        location_enabled: booleanSetting(source.locationEnabled ?? source.location_enabled, false),
+        push_token: String(source.pushToken ?? source.push_token ?? '').slice(0, 500),
+        push_platform: String(source.pushPlatform ?? source.push_platform ?? '').slice(0, 80),
+        notification_permission: String(source.notificationPermission ?? source.notification_permission ?? 'default').slice(0, 40),
+        preferences: source.preferences && typeof source.preferences === 'object' ? source.preferences : {},
+        updated_at: new Date().toISOString(),
+    };
+}
+
+function normalizeSettings(row = {}) {
+    return {
+        notifications: row.notifications !== false,
+        emailNotifications: Boolean(row.email_notifications),
+        darkMode: Boolean(row.dark_mode),
+        showOnline: row.show_online !== false,
+        showAge: row.show_age !== false,
+        isPublic: row.is_public !== false,
+        liveLocation: Boolean(row.live_location),
+        locationEnabled: Boolean(row.location_enabled),
+        pushToken: row.push_token || '',
+        pushPlatform: row.push_platform || '',
+        notificationPermission: row.notification_permission || 'default',
+        preferences: row.preferences || {},
+    };
+}
+
+async function resolveUserId(supabase, body) {
+    if (body.memberId || body.userId) return body.memberId || body.userId;
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!email) return null;
+    const { data } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+    return data?.id || null;
+}
+
+async function getUserSettings(supabase, userId) {
+    if (!userId) return null;
+    const result = await supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle();
+    if (result.error && result.error.code !== 'PGRST116') return { error: result.error };
+    if (!result.data) return { data: normalizeSettings({}) };
+    return { data: normalizeSettings(result.data) };
+}
 function maskPhone(phone) {
     if (!phone) return null;
     const digits = String(phone).replace(/\D/g, '');
@@ -347,6 +405,27 @@ export async function POST(request) {
     const action = body.action;
     const memberId = body.memberId;
     const actorKey = String(body.actorKey || 'guest').slice(0, 120);
+
+    if (action === 'account_settings') {
+        const userId = await resolveUserId(supabase, body);
+        if (!userId) return NextResponse.json({ settings: normalizeSettings({}) });
+        const settingsResult = await getUserSettings(supabase, userId);
+        if (settingsResult?.error) return NextResponse.json({ error: 'User settings table is missing. Run supabase/migrations/20260626_080_user_alert_settings.sql.' }, { status: 500 });
+        return NextResponse.json({ ok: true, settings: settingsResult.data || normalizeSettings({}) });
+    }
+
+    if (action === 'update_settings') {
+        const userId = await resolveUserId(supabase, body);
+        if (!userId) return NextResponse.json({ error: 'Account id or email is required.' }, { status: 400 });
+        const payload = { user_id: userId, ...settingsPayload(body) };
+        const result = await supabase
+            .from('user_settings')
+            .upsert(payload, { onConflict: 'user_id' })
+            .select('*')
+            .maybeSingle();
+        if (result.error) return NextResponse.json({ error: 'User settings table is missing. Run supabase/migrations/20260626_080_user_alert_settings.sql.' }, { status: 500 });
+        return NextResponse.json({ ok: true, settings: normalizeSettings(result.data) });
+    }
 
     if (action === 'account_inbox') {
         const email = String(body.email || '').trim().toLowerCase();
