@@ -64,15 +64,27 @@ console.log('\nAnd cannot serve one account another account data');
 
 console.log('\nThe screens that shared a payload now share a cache entry');
 {
+    /*
+      Each entry lists the files that together satisfy the requirement, because
+      a screen may reach the cache directly or through a hook.
+
+      The members list does the latter now: it went to usePagedMembers when
+      per_page=240 was replaced by paging, and that hook calls cachedFetch. This
+      check failed on that change while the behaviour was entirely correct,
+      which is the hazard of asserting on a call site rather than on an
+      outcome — so it follows the indirection instead of demanding one shape.
+    */
     const screens = [
-        ['members', join('src', 'app', '(main)', 'members', 'page.js')],
-        ['matches', join('src', 'app', '(main)', 'matches', 'page.js')],
-        ['boosted strip', join('src', 'components', 'BoostedMembersStrip.js')],
-        ['live strip', join('src', 'components', 'LiveNowStrip.js')],
+        ['members', [join('src', 'app', '(main)', 'members', 'page.js'),
+                     join('src', 'lib', 'usePagedMembers.js')]],
+        ['matches', [join('src', 'app', '(main)', 'matches', 'page.js')]],
+        ['boosted strip', [join('src', 'components', 'BoostedMembersStrip.js')]],
+        ['live strip', [join('src', 'components', 'LiveNowStrip.js')]],
     ];
-    for (const [label, path] of screens) {
-        const src = readFileSync(path, 'utf8');
-        check(`${label} reads through cachedFetch`, /cachedFetch\(/.test(src));
+    for (const [label, paths] of screens) {
+        const reachesCache = paths.some((path) => /cachedFetch\(/.test(readFileSync(path, 'utf8')));
+        check(`${label} reads through cachedFetch`, reachesCache,
+            paths.length > 1 ? 'directly or via its paging hook' : '');
     }
 
     /*
