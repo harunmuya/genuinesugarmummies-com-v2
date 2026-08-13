@@ -579,7 +579,7 @@ export default function ProfilePage() {
             <div className="space-y-2">
                 {isLoggedIn && (
                     <button onClick={handleSignOut} disabled={signingOut}
-                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-text-primary transition-colors hover:bg-gray-100"
+                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-text-primary transition-colors hover:bg-surface"
                         style={{ border: '1px solid rgba(0,0,0,0.1)' }}
                     >
                         <LogOut size={18} /> {signingOut ? 'Signing Out...' : 'Sign Out'}

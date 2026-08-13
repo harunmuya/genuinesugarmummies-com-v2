@@ -122,7 +122,7 @@ export default function StoriesStrip({ title = 'Stories' }) {
                     {visible.map((story) => (
                         <button key={story.id} type="button" onClick={() => openStory(story)} className="w-20 shrink-0 space-y-1 text-center">
                             <div className="relative mx-auto h-16 w-16 rounded-full bg-gradient-to-br from-primary to-secondary p-0.5">
-                                <div className="h-full w-full overflow-hidden rounded-full bg-white">
+                                <div className="h-full w-full overflow-hidden rounded-full bg-surface">
                                     {storyPhoto(story) ? <img src={storyPhoto(story)} alt="" className="h-full w-full object-cover" /> : <UserAvatar name={story.user?.display_name || 'Story'} size={62} />}
                                 </div>
                                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-1.5 py-0.5 text-[8px] font-black text-white">{timeLeft(story.expires_at)}</span>

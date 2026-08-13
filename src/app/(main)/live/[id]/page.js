@@ -298,7 +298,7 @@ export default function WatchLivePage({ params }) {
                     <div className="max-h-64 space-y-2 overflow-auto pb-3">
                         {comments.slice(-40).map((comment) => <p key={comment.id} className="w-fit max-w-[88%] rounded-2xl bg-black/35 px-3 py-2 text-xs backdrop-blur"><b>{comment.user?.display_name || 'Member'}:</b> {comment.content}</p>)}
                     </div>
-                    {giftPanelOpen && <div className="mb-3 rounded-3xl bg-white p-3 text-text-primary shadow-2xl">
+                    {giftPanelOpen && <div className="mb-3 rounded-3xl bg-bg-card p-3 text-text-primary shadow-2xl">
                         <div className="mb-2 flex items-center justify-between">
                             <p className="text-sm font-black">Send Live Gift</p>
                             <Link href="/wallet" className="text-xs font-black text-primary inline-flex items-center gap-1"><Wallet size={12} /> Credits</Link>

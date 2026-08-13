@@ -563,7 +563,7 @@ export default function DiscoverPage() {
                     ['online', 'Online'],
                     ['nearby', 'Nearby'],
                 ].map(([id, label]) => (
-                    <button key={id} onClick={() => id === 'nearby' && !geo ? requestNearby() : setFilter(id)} className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-black ${filter === id ? 'gradient-primary text-white' : 'bg-white text-text-secondary'}`}>
+                    <button key={id} onClick={() => id === 'nearby' && !geo ? requestNearby() : setFilter(id)} className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-black ${filter === id ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}>
                         {label}
                     </button>
                 ))}
@@ -573,7 +573,7 @@ export default function DiscoverPage() {
             </section>
             <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '3/4' }}>
                 <AnimatePresence mode="wait">
-                    <motion.article key={current.swipeKey} className="absolute inset-0 rounded-[22px] overflow-hidden card-shadow bg-white touch-pan-y" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.32} onDragEnd={(_, info) => { if (Math.abs(info.offset.x) < 140) { x.set(0); return; } if (info.offset.x > 0) handleLike(); else handlePass(); }} initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ x: direction === 'right' ? 260 : direction === 'left' ? -260 : 0, opacity: 0, transition: { duration: 0.22 } }}>
+                    <motion.article key={current.swipeKey} className="absolute inset-0 rounded-[22px] overflow-hidden card-shadow bg-bg-card touch-pan-y" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.32} onDragEnd={(_, info) => { if (Math.abs(info.offset.x) < 140) { x.set(0); return; } if (info.offset.x > 0) handleLike(); else handlePass(); }} initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ x: direction === 'right' ? 260 : direction === 'left' ? -260 : 0, opacity: 0, transition: { duration: 0.22 } }}>
                         {current.avatarUrl ? <img src={current.avatarUrl} alt={current.name} className="absolute inset-0 w-full h-full object-cover" onError={(event) => useFallbackAvatar(event, current.name)} /> : <div className="absolute inset-0 flex items-center justify-center bg-primary/10"><UserAvatar name={current.name} size={120} /></div>}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/20 to-transparent" />
                         <motion.div className="absolute top-7 left-5 px-4 py-2 rounded-xl border-4 border-success text-success font-black text-2xl -rotate-12 bg-white/80" style={{ opacity: likeOpacity }}>LIKE</motion.div>

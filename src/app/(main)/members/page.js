@@ -355,11 +355,11 @@ export default function MembersPage() {
                                         <Gift size={15} strokeWidth={2.5} />
                                         <span className="max-w-full truncate">Gift</span>
                                     </button>
-                                    {member.id === user?.id ? <span className="min-h-11 rounded-xl bg-gray-100 px-0.5 text-[8.5px] font-black leading-none text-text-muted flex flex-col items-center justify-center text-center">You</span> : <button onClick={() => openCall(member)} className="min-h-11 rounded-xl bg-sky-100 px-0.5 text-[8.5px] font-black leading-none text-sky-700 inline-flex flex-col items-center justify-center gap-1 text-center">
+                                    {member.id === user?.id ? <span className="min-h-11 rounded-xl bg-surface px-0.5 text-[8.5px] font-black leading-none text-text-muted flex flex-col items-center justify-center text-center">You</span> : <button onClick={() => openCall(member)} className="min-h-11 rounded-xl bg-sky-100 px-0.5 text-[8.5px] font-black leading-none text-sky-700 inline-flex flex-col items-center justify-center gap-1 text-center">
                                         <PhoneCall size={15} strokeWidth={2.5} />
                                         <span className="max-w-full truncate">Call</span>
                                     </button>}
-                                    <button onClick={() => openMember(member)} className="min-h-11 rounded-xl bg-gray-100 px-0.5 text-[8.5px] font-black leading-none text-text-secondary inline-flex flex-col items-center justify-center gap-0.5 text-center">
+                                    <button onClick={() => openMember(member)} className="min-h-11 rounded-xl bg-surface px-0.5 text-[8.5px] font-black leading-none text-text-secondary inline-flex flex-col items-center justify-center gap-0.5 text-center">
                                         <Eye size={15} strokeWidth={2.5} />
                                         <span className="max-w-full leading-[0.9]">View<br />Profile</span>
                                     </button>

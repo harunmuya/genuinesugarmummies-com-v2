@@ -62,7 +62,7 @@ function statusColor(user) {
     if (user.is_suspended || user.is_banned) return 'text-danger bg-danger/10';
     if (user.verified) return 'text-success bg-success/10';
     if (user.verification_status === 'pending_admin') return 'text-gold bg-amber-100';
-    return 'text-text-muted bg-gray-100';
+    return 'text-text-muted bg-surface';
 }
 
 function dateText(date) {
@@ -249,7 +249,7 @@ export default function AdminPage() {
                 <div className="flex items-center gap-3"><Logo size={42} /><div><h1 className="text-xl font-black text-text-primary">Admin Control Panel</h1><p className="text-xs text-text-muted">Users, verification, finance, messages, analytics, tickets, ads and limits.</p></div></div>
                 <div className="flex items-center gap-2">
                     <button onClick={loadAdmin} className="px-3 py-2 rounded-xl text-sm font-bold bg-primary/10 text-primary flex items-center gap-2"><RefreshCw size={15} /> Refresh</button>
-                    <button onClick={() => { localStorage.removeItem('gs_admin_token'); setToken(''); }} className="px-3 py-2 rounded-xl text-sm font-bold bg-gray-100">Logout</button>
+                    <button onClick={() => { localStorage.removeItem('gs_admin_token'); setToken(''); }} className="px-3 py-2 rounded-xl text-sm font-bold bg-surface">Logout</button>
                 </div>
             </header>
 
@@ -265,7 +265,7 @@ export default function AdminPage() {
                     <Bell size={16} className="text-gold" />
                     <span className="text-text-primary">{attention.total} section item{attention.total === 1 ? '' : 's'} need attention:</span>
                     {TABS.filter((tab) => attentionForTab(attention, tab.id) > 0).map((tab) => (
-                        <button key={tab.id} onClick={() => { setActiveTab(tab.id); if (tab.id === 'users') { setUserFilter('attention'); setUserSort('attention'); } }} className="rounded-full bg-white px-3 py-1 text-gold">
+                        <button key={tab.id} onClick={() => { setActiveTab(tab.id); if (tab.id === 'users') { setUserFilter('attention'); setUserSort('attention'); } }} className="rounded-full bg-surface px-3 py-1 text-gold">
                             {tab.label} {attentionForTab(attention, tab.id)}
                         </button>
                     ))}
@@ -276,7 +276,7 @@ export default function AdminPage() {
                 {TABS.map((tab) => {
                     const Icon = tab.icon;
                     const count = attentionForTab(attention, tab.id);
-                    return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`relative shrink-0 rounded-xl px-3 py-2 text-xs font-black flex items-center gap-2 ${activeTab === tab.id ? 'gradient-primary text-white' : 'bg-white text-text-secondary'}`}><Icon size={15} /> {tab.label}{count > 0 && <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-danger/10 text-danger'}`}>{count > 99 ? '99+' : count}</span>}</button>;
+                    return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`relative shrink-0 rounded-xl px-3 py-2 text-xs font-black flex items-center gap-2 ${activeTab === tab.id ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}><Icon size={15} /> {tab.label}{count > 0 && <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-danger/10 text-danger'}`}>{count > 99 ? '99+' : count}</span>}</button>;
                 })}
             </nav>
 
@@ -303,7 +303,7 @@ export default function AdminPage() {
                         </div>
                         <div className="flex gap-2 overflow-x-auto pb-1">
                             {USER_FILTERS.map(([id, label]) => (
-                                <button key={id} onClick={() => setUserFilter(id)} className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-black ${userFilter === id ? 'gradient-primary text-white' : 'bg-white text-text-secondary'}`}>
+                                <button key={id} onClick={() => setUserFilter(id)} className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-black ${userFilter === id ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}>
                                     {label} <span className="ml-1 opacity-75">{userFilterCounts[id] || 0}</span>
                                 </button>
                             ))}
@@ -328,7 +328,7 @@ export default function AdminPage() {
                                     <div className="flex flex-wrap gap-1 mt-1">
                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${statusColor(user)}`}>{user.verification_status || 'new'}</span>
                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary">{tierText(user.subscription_tier)}</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${user.show_in_public ? 'bg-success/10 text-success' : 'bg-gray-100 text-text-muted'}`}>{user.show_in_public ? 'PUBLIC' : 'HIDDEN'}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${user.show_in_public ? 'bg-success/10 text-success' : 'bg-surface text-text-muted'}`}>{user.show_in_public ? 'PUBLIC' : 'HIDDEN'}</span>
                                         {needsPhoto(user) && <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-danger/10 text-danger">PHOTO REQUIRED</span>}
                                         {!user.username && <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-gold">USERNAME AUTO</span>}
                                         {verificationReady && <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-gold">BADGE REVIEW</span>}
@@ -346,7 +346,7 @@ export default function AdminPage() {
                                     ['Gifts', user.gifts_received_count || 0],
                                     ['Username', '@' + userHandle(user)],
                                 ].map(([label, value]) => (
-                                    <div key={label} className="min-w-0 rounded-lg bg-white px-2 py-1.5">
+                                    <div key={label} className="min-w-0 rounded-lg bg-surface px-2 py-1.5">
                                         <p className="font-black text-text-muted">{label}</p>
                                         <p className="truncate font-bold text-text-primary">{value}</p>
                                     </div>
@@ -359,7 +359,7 @@ export default function AdminPage() {
                             </div>
 
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                                {TIERS.map((tier) => <button key={tier} onClick={() => adminAction({ action: 'set_package', userId: user.id, tier, locked: false }, `${tier} package set`)} className={`min-h-9 px-2 py-2 rounded-lg text-[10px] font-black ${String(user.subscription_tier || 'free') === tier ? 'gradient-primary text-white' : 'bg-gray-100 text-text-secondary'}`}>{tier}</button>)}
+                                {TIERS.map((tier) => <button key={tier} onClick={() => adminAction({ action: 'set_package', userId: user.id, tier, locked: false }, `${tier} package set`)} className={`min-h-9 px-2 py-2 rounded-lg text-[10px] font-black ${String(user.subscription_tier || 'free') === tier ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}>{tier}</button>)}
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -368,8 +368,8 @@ export default function AdminPage() {
                             </div>
 
                             <div className="rounded-xl p-2 space-y-2 bg-surface">
-                                <input value={emailForms[user.id]?.subject || ''} onChange={(e) => setEmailForms({ ...emailForms, [user.id]: { ...(emailForms[user.id] || {}), subject: e.target.value } })} placeholder="Email subject" className="w-full rounded-lg p-2 text-xs bg-white" />
-                                <textarea value={emailForms[user.id]?.message || ''} onChange={(e) => setEmailForms({ ...emailForms, [user.id]: { ...(emailForms[user.id] || {}), message: e.target.value } })} placeholder="Message to user account and email" className="w-full rounded-lg p-2 text-xs bg-white resize-none" rows={2} />
+                                <input value={emailForms[user.id]?.subject || ''} onChange={(e) => setEmailForms({ ...emailForms, [user.id]: { ...(emailForms[user.id] || {}), subject: e.target.value } })} placeholder="Email subject" className="w-full rounded-lg p-2 text-xs bg-bg-input" />
+                                <textarea value={emailForms[user.id]?.message || ''} onChange={(e) => setEmailForms({ ...emailForms, [user.id]: { ...(emailForms[user.id] || {}), message: e.target.value } })} placeholder="Message to user account and email" className="w-full rounded-lg p-2 text-xs bg-bg-input resize-none" rows={2} />
                                 <button onClick={() => adminAction({ action: 'email_user', userId: user.id, subject: emailForms[user.id]?.subject || 'Message from Genuine Sugar Mummies', message: emailForms[user.id]?.message || 'Admin sent you a message.' }, 'Email and account message sent')} className="w-full rounded-lg py-2 text-xs font-black bg-sky-100 text-sky-700">Email User + Inbox</button>
                             </div>
                         </article>
@@ -431,7 +431,7 @@ export default function AdminPage() {
 
             {activeTab === 'analytics' && <Panel title="Analytics" items={[`Profile views: ${(data.users || []).reduce((sum, user) => sum + (user.total_profile_views || 0), 0)}`, `Followers: ${(data.users || []).reduce((sum, user) => sum + (user.followers_count || 0), 0)}`, `Gifts sent: ${(data.gifts || []).length}`, `Saved messages: ${(data.messages || []).length}`, `Pending package requests: ${stats.pendingPackageRequests || 0}`]} />}
 
-            {activeTab === 'tickets' && <ActionList title="Tickets" items={data.tickets || []} empty="No tickets yet." render={(item) => <><AccountDetails account={item.account} fallback={item} label="Ticket user" /><div className="mt-3 flex items-start justify-between gap-2"><div className="min-w-0"><h2 className="font-black truncate">{item.subject}</h2><p className="text-[11px] text-text-muted">Ticket ID: {item.id}</p></div><span className="shrink-0 rounded-full px-2 py-1 text-[10px] font-black bg-primary/10 text-primary">{String(item.service || 'general').replace(/_/g, ' ')}</span></div><p className="mt-2 text-sm text-text-secondary">{item.body}</p><div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-black text-text-muted">{item.status}</span><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-gold">{item.priority || 'normal'}</span><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-black text-primary">{dateText(item.created_at)}</span></div><div className="mt-3 space-y-2"><textarea value={ticketReplies[item.id] || ''} onChange={(e) => setTicketReplies({ ...ticketReplies, [item.id]: e.target.value })} placeholder="Reply to this user" className="w-full rounded-xl p-3 text-sm bg-surface resize-none" rows={2} /><div className="flex flex-wrap gap-2"><button onClick={() => adminAction({ action: 'respond_ticket', ticketId: item.id, message: ticketReplies[item.id] || '' }, 'Ticket response sent to account and email queue')} className="px-3 py-2 rounded-xl text-xs font-black text-white gradient-primary">Respond</button>{item.status !== 'closed' && <button onClick={() => adminAction({ action: 'close_ticket', ticketId: item.id }, 'Ticket closed and removed from queue')} className="px-3 py-2 rounded-xl text-xs font-black bg-gray-100">Close</button>}<button onClick={() => adminAction({ action: 'delete_ticket', ticketId: item.id }, 'Ticket deleted')} className="px-3 py-2 rounded-xl text-xs font-black bg-danger/10 text-danger">Delete</button></div></div></>} footer={<div className="rounded-2xl p-4 space-y-2" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}><input value={ticket.subject} onChange={(e) => setTicket({ ...ticket, subject: e.target.value })} placeholder="Ticket subject" className="w-full rounded-xl p-3 text-sm bg-surface" /><textarea value={ticket.body} onChange={(e) => setTicket({ ...ticket, body: e.target.value })} placeholder="Ticket note" className="w-full rounded-xl p-3 text-sm bg-surface" /><button onClick={() => adminAction({ action: 'create_ticket', ...ticket }, 'Ticket created')} className="rounded-xl px-4 py-2 text-xs font-black text-white gradient-primary">Create Ticket</button></div>} />}
+            {activeTab === 'tickets' && <ActionList title="Tickets" items={data.tickets || []} empty="No tickets yet." render={(item) => <><AccountDetails account={item.account} fallback={item} label="Ticket user" /><div className="mt-3 flex items-start justify-between gap-2"><div className="min-w-0"><h2 className="font-black truncate">{item.subject}</h2><p className="text-[11px] text-text-muted">Ticket ID: {item.id}</p></div><span className="shrink-0 rounded-full px-2 py-1 text-[10px] font-black bg-primary/10 text-primary">{String(item.service || 'general').replace(/_/g, ' ')}</span></div><p className="mt-2 text-sm text-text-secondary">{item.body}</p><div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded-full bg-surface px-2 py-1 text-[10px] font-black text-text-muted">{item.status}</span><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-gold">{item.priority || 'normal'}</span><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-black text-primary">{dateText(item.created_at)}</span></div><div className="mt-3 space-y-2"><textarea value={ticketReplies[item.id] || ''} onChange={(e) => setTicketReplies({ ...ticketReplies, [item.id]: e.target.value })} placeholder="Reply to this user" className="w-full rounded-xl p-3 text-sm bg-surface resize-none" rows={2} /><div className="flex flex-wrap gap-2"><button onClick={() => adminAction({ action: 'respond_ticket', ticketId: item.id, message: ticketReplies[item.id] || '' }, 'Ticket response sent to account and email queue')} className="px-3 py-2 rounded-xl text-xs font-black text-white gradient-primary">Respond</button>{item.status !== 'closed' && <button onClick={() => adminAction({ action: 'close_ticket', ticketId: item.id }, 'Ticket closed and removed from queue')} className="px-3 py-2 rounded-xl text-xs font-black bg-surface">Close</button>}<button onClick={() => adminAction({ action: 'delete_ticket', ticketId: item.id }, 'Ticket deleted')} className="px-3 py-2 rounded-xl text-xs font-black bg-danger/10 text-danger">Delete</button></div></div></>} footer={<div className="rounded-2xl p-4 space-y-2" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}><input value={ticket.subject} onChange={(e) => setTicket({ ...ticket, subject: e.target.value })} placeholder="Ticket subject" className="w-full rounded-xl p-3 text-sm bg-surface" /><textarea value={ticket.body} onChange={(e) => setTicket({ ...ticket, body: e.target.value })} placeholder="Ticket note" className="w-full rounded-xl p-3 text-sm bg-surface" /><button onClick={() => adminAction({ action: 'create_ticket', ...ticket }, 'Ticket created')} className="rounded-xl px-4 py-2 text-xs font-black text-white gradient-primary">Create Ticket</button></div>} />}
             {activeTab === 'broadcast' && <ActionList title="Broadcasts" items={data.broadcasts || []} empty="No broadcasts yet." render={(item) => <><h2 className="font-black">{item.title}</h2><p className="text-sm text-text-secondary">{item.body}</p><p className="text-xs text-text-muted">{item.target_segment} - {dateText(item.created_at)}</p></>} footer={<div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}><input value={broadcast.title} onChange={(e) => setBroadcast({ ...broadcast, title: e.target.value })} placeholder="Broadcast title" className="w-full rounded-xl p-3 text-sm bg-surface" /><textarea value={broadcast.body} onChange={(e) => setBroadcast({ ...broadcast, body: e.target.value })} placeholder="Message to users and email inboxes" className="w-full rounded-xl p-3 text-sm bg-surface" /><select value={broadcast.targetSegment} onChange={(e) => setBroadcast({ ...broadcast, targetSegment: e.target.value })} className="w-full rounded-xl p-3 text-sm bg-surface"><option value="all">All users</option><option value="free">Free users</option><option value="basic">Basic users</option><option value="silver">Silver users</option><option value="gold">Gold users</option><option value="sugar_mummy">Sugar mummies</option><option value="sugar_daddy">Sugar daddies</option><option value="mistress">Mistresses</option><option value="toyboy">Toyboys</option></select><div className="flex flex-wrap gap-2"><button onClick={() => adminAction({ action: 'create_broadcast', ...broadcast }, 'Broadcast sent to accounts and emails')} className="rounded-xl px-4 py-2 text-xs font-black text-white gradient-primary">Send Broadcast</button><button onClick={() => adminAction({ action: 'send_subscription_reminders' }, 'Subscription reminders sent')} className="rounded-xl px-4 py-2 text-xs font-black bg-amber-100 text-gold">Send Subscription Reminders</button></div><div className="flex gap-2"><input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="Test email" className="min-w-0 flex-1 rounded-xl p-3 text-sm bg-surface" /><button onClick={() => adminAction({ action: 'test_email', to: testEmail }, 'Test email sent')} className="rounded-xl px-4 py-2 text-xs font-black bg-sky-100 text-sky-700">Send Test</button></div></div>} />}
 
             {activeTab === 'limits' && <section className="rounded-2xl p-4 space-y-3 max-w-xl" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}><h2 className="font-black">Ads & Limits</h2>{[['dailyMessageLimit', 'Daily messages'], ['dailyGiftLimit', 'Daily gifts'], ['maxPhotosPerUser', 'Max photos']].map(([key, label]) => <label key={key} className="block text-xs font-bold text-text-muted">{label}<input type="number" value={limits[key]} onChange={(e) => setLimits({ ...limits, [key]: e.target.value })} className="mt-1 w-full rounded-xl p-3 text-sm bg-surface text-text-primary" /></label>)}<label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={limits.requireManualVerification} onChange={(e) => setLimits({ ...limits, requireManualVerification: e.target.checked })} /> Require manual verification</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={limits.adsEnabled} onChange={(e) => setLimits({ ...limits, adsEnabled: e.target.checked })} /> Ads enabled</label><button onClick={() => adminAction({ action: 'update_limits', ...limits }, 'Limits updated')} className="rounded-xl px-4 py-2 text-xs font-black text-white gradient-primary">Save Limits</button></section>}
@@ -478,7 +478,7 @@ function AccountDetails({ account, fallback = {}, label = 'Account' }) {
                     ['Verify', data.verification_status || (data.verified ? 'verified' : 'unsubmitted')],
                     ['Seen', dateText(data.last_seen_at)],
                 ].map(([key, value]) => (
-                    <div key={key} className="min-w-0 rounded-lg bg-white px-2 py-1">
+                    <div key={key} className="min-w-0 rounded-lg bg-surface px-2 py-1">
                         <p className="font-black text-text-muted">{key}</p>
                         <p className="truncate font-bold text-text-primary">{value}</p>
                     </div>
@@ -501,7 +501,7 @@ function EvidenceCard({ title, src, fileName }) {
             <img src={src} alt={title} className="w-full aspect-square object-cover rounded-xl" />
             <div className="flex gap-2">
                 <a href={src} target="_blank" rel="noreferrer" className="flex-1 rounded-xl px-3 py-2 text-center text-xs font-black bg-primary/10 text-primary">View</a>
-                <a href={src} download={fileName} className="flex-1 rounded-xl px-3 py-2 text-center text-xs font-black bg-gray-100 text-text-secondary">Download</a>
+                <a href={src} download={fileName} className="flex-1 rounded-xl px-3 py-2 text-center text-xs font-black bg-surface text-text-secondary">Download</a>
             </div>
         </div>
     );

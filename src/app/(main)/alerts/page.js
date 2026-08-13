@@ -155,7 +155,7 @@ export default function AlertsPage() {
                     ['inbox', 'All'],
                     ['messages', 'Messages'],
                     ['activity', 'Activity'],
-                ].map(([id, label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-xl py-2 text-xs font-black ${tab === id ? 'gradient-primary text-white' : 'bg-white text-text-secondary'}`}>{label}</button>)}
+                ].map(([id, label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-xl py-2 text-xs font-black ${tab === id ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}>{label}</button>)}
             </div>
 
             {unreadCount > 0 && <div className="rounded-2xl p-3 text-xs font-bold text-primary bg-primary/10">{unreadCount > 99 ? '99+' : unreadCount} unread item{unreadCount === 1 ? '' : 's'}</div>}

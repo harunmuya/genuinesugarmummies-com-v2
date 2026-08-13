@@ -134,7 +134,7 @@ export default function IncomingCallManager() {
 
     return (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-4 pb-24 backdrop-blur-sm sm:items-center sm:pb-4">
-            <div className="w-full max-w-sm overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="w-full max-w-sm overflow-hidden rounded-[28px] bg-bg-card shadow-2xl">
                 <div className="gradient-primary p-5 text-white">
                     <div className="flex items-center gap-3">
                         <UserAvatar name={caller.display_name || 'Member'} src={callerPhoto} size={58} />

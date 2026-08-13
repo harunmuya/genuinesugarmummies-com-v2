@@ -133,7 +133,7 @@ export default function VoiceRecorder({ disabled = false, onRecorded, onError })
                 {recording ? <StopCircle size={17} /> : <Mic size={17} />}
             </button>
             {recording && (
-                <div className="absolute bottom-12 right-0 z-40 w-56 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-danger/15">
+                <div className="absolute bottom-12 right-0 z-40 w-56 rounded-2xl bg-bg-card p-3 shadow-xl ring-1 ring-danger/15">
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-black text-danger">
                             <span className="h-2.5 w-2.5 rounded-full bg-danger animate-pulse" />

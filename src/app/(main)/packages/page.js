@@ -343,7 +343,7 @@ export default function PackagesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     {PAYMENT_METHODS.map((item) => (
-                        <button key={item.id} onClick={() => setMethodId(item.id)} className={`min-h-11 rounded-2xl px-3 text-sm font-black ${methodId === item.id ? 'gradient-primary text-white' : 'bg-gray-100 text-text-secondary'}`}>
+                        <button key={item.id} onClick={() => setMethodId(item.id)} className={`min-h-11 rounded-2xl px-3 text-sm font-black ${methodId === item.id ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}>
                             {item.name}
                         </button>
                     ))}
@@ -423,7 +423,7 @@ function TierCard({ tier, active, selected, onSelect }) {
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1 text-xs font-black text-success"><Check size={14} /> Lifetime access</span>
-                    <span className={`rounded-full px-3 py-1.5 text-xs font-black ${active ? 'gradient-primary text-white' : 'bg-gray-100 text-text-secondary'}`}>{active ? 'Selected' : 'Choose'}</span>
+                    <span className={`rounded-full px-3 py-1.5 text-xs font-black ${active ? 'gradient-primary text-white' : 'bg-surface text-text-secondary'}`}>{active ? 'Selected' : 'Choose'}</span>
                 </div>
             </button>
             {active && selected?.id === tier.id && (
