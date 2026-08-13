@@ -1,14 +1,20 @@
 apply plugin: 'com.android.application'
 
+def releaseKeystorePropertiesFile = rootProject.file("keystores/release-keystore.properties")
+def releaseKeystoreProperties = new Properties()
+if (releaseKeystorePropertiesFile.exists()) {
+    releaseKeystoreProperties.load(new FileInputStream(releaseKeystorePropertiesFile))
+}
+
 android {
-    namespace = "com.genuinesugarmummies.app"
+    namespace = "com.genuinesugarmummies.global"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.genuinesugarmummies.app"
+        applicationId "com.genuinesugarmummies.global"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "1.0.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +22,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def configuredStoreFile = releaseKeystoreProperties['storeFile']
+            if (configuredStoreFile) {
+                def storeFilePath = configuredStoreFile.toString().replace("\\", "/")
+                if (storeFilePath.contains(":")) {
+                    storeFile file(storeFilePath)
+                } else {
+                    storeFilePath = storeFilePath.replaceFirst("^android/", "")
+                    storeFile rootProject.file(storeFilePath.startsWith("keystores/") ? storeFilePath : "keystores/${storeFilePath}")
+                }
+            }
+            storePassword releaseKeystoreProperties['storePassword']
+            keyAlias releaseKeystoreProperties['keyAlias']
+            keyPassword releaseKeystoreProperties['keyPassword']
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

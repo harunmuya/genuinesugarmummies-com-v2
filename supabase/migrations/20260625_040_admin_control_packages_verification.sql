@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     profile_label TEXT DEFAULT 'member',
     subscription_tier TEXT DEFAULT 'free',
     verified BOOLEAN DEFAULT false,
-    verification_status TEXT DEFAULT 'pending_admin',
+    verification_status TEXT DEFAULT 'unsubmitted',
     show_in_public BOOLEAN DEFAULT false,
     is_banned BOOLEAN DEFAULT false,
     is_suspended BOOLEAN DEFAULT false,
@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS public.package_tiers (
 
 INSERT INTO public.package_tiers (id, name, price_ksh, phone_reveal, daily_message_limit, daily_gift_limit, priority_visibility, international_access, voice_video_access, sort_order) VALUES
 ('basic', 'Basic', 650, false, 10, 10, false, false, false, 1),
-('silver', 'Silver', 1200, true, 30, 20, true, false, true, 2),
-('gold', 'Gold International', 3500, true, 100, 50, true, true, true, 3)
+('silver', 'Silver Recommended', 1200, true, 0, 50, true, false, true, 2),
+('gold', 'Gold International', 3500, true, 0, 100, true, true, true, 3)
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     price_ksh = EXCLUDED.price_ksh,

@@ -11,6 +11,7 @@ import LiveNowStrip from '@/components/LiveNowStrip';
 import BoostedMembersStrip from '@/components/BoostedMembersStrip';
 import StoriesStrip from '@/components/StoriesStrip';
 import { useAuth } from '@/contexts/AuthContext';
+import { cachedFetch, TTL } from '@/lib/cachedFetch';
 
 const MODES = [
     { id: 'all', label: 'Show All' },
@@ -134,12 +135,15 @@ export default function MembersPage() {
             setLoading(true);
             setError('');
             try {
-                const res = await fetch(`/api/members?${query}`);
-                const data = await res.json();
+                const data = await cachedFetch(`/api/members?${query}`, { ttl: TTL.MEMBERS });
                 if (!alive) return;
+                if (!data) {
+                    setError('Members are unavailable right now.');
+                    return;
+                }
                 setMembers(data.members || []);
                 setSchemaReady(data.schemaReady !== false && !data.setupRequired);
-                if (!res.ok) setError(data.error || 'Members are unavailable right now.');
+                if (data.error) setError(data.error);
             } catch {
                 if (alive) setError('Members are unavailable right now.');
             } finally {

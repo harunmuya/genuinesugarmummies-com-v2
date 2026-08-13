@@ -13,12 +13,11 @@ export default function TopBar() {
     };
 
     return (
-        <header className="sticky top-0 z-40 w-full glass" style={{ borderBottom: '1px solid rgba(15,118,110,0.14)' }}>
-            <div className="flex items-center justify-between px-4 py-2.5 max-w-lg mx-auto">
-                <button onClick={handleLogoClick} className="flex items-center cursor-pointer transition-opacity active:opacity-70 min-w-0" aria-label="Go to homepage">
+        <header className="sticky top-0 z-40 w-full glass" style={{ borderBottom: '1px solid rgba(14,143,131,0.14)' }}>
+            <div className="flex items-center justify-between px-4 py-2.5 app-main">
+                <button onClick={handleLogoClick} className="flex items-center cursor-pointer transition-opacity active:opacity-70 min-w-0 rounded-2xl" aria-label="Go to homepage">
                     <Logo size={34} />
                 </button>
-
             </div>
         </header>
     );

@@ -9,7 +9,7 @@ export const viewport = {
     maximumScale: 1,
     userScalable: false,
     viewportFit: 'cover',
-    themeColor: '#0F766E',
+    themeColor: '#0E8F83',
 };
 
 export const metadata = {

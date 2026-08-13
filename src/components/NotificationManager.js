@@ -1,12 +1,15 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 function formatBadge(count) {
     if (!count) return '';
     return count > 99 ? '99+' : String(count);
+}
+
+function unreadValue(item) {
+    return Math.max(0, Number(item?.unreadCount || 0)) || (item?.read ? 0 : 1);
 }
 
 async function getNativeNotifications() {
@@ -23,13 +26,13 @@ async function getNativeNotifications() {
 }
 
 export default function NotificationManager() {
-    const { settings, user, guest, activity, messages } = useAuth();
+    const { settings, user, guest, activity, messages, updateSettings } = useAuth();
     const permissionRef = useRef('default');
-    const [showPrompt, setShowPrompt] = useState(false);
+    const previousUnreadRef = useRef(0);
 
     const unreadCount = useMemo(() => {
         const unreadAlerts = (activity || []).filter((item) => !item.read).length;
-        const unreadMessages = (messages || []).filter((item) => !item.read).length;
+        const unreadMessages = (messages || []).reduce((total, item) => total + unreadValue(item), 0);
         return Math.min(99, unreadAlerts + unreadMessages);
     }, [activity, messages]);
 
@@ -37,21 +40,7 @@ export default function NotificationManager() {
         if (typeof window === 'undefined') return;
         const browserPermission = 'Notification' in window ? Notification.permission : 'default';
         permissionRef.current = browserPermission;
-        setShowPrompt(Boolean(user && !guest && settings.notifications && browserPermission === 'default'));
     }, [user, guest, settings.notifications]);
-
-    useEffect(() => {
-        if (typeof navigator === 'undefined') return;
-        const count = Math.max(0, unreadCount || 0);
-        if ('setAppBadge' in navigator) {
-            if (count > 0) navigator.setAppBadge(count).catch(() => {});
-            else navigator.clearAppBadge?.().catch(() => {});
-        }
-        if (navigator.serviceWorker?.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'GS_BADGE_COUNT', count });
-        }
-        try { localStorage.setItem('gscom_badge_count', JSON.stringify({ count, label: formatBadge(count), at: Date.now() })); } catch {}
-    }, [unreadCount]);
 
     async function requestPermission() {
         if (typeof window === 'undefined') return;
@@ -62,19 +51,88 @@ export default function NotificationManager() {
                 permissionRef.current = nativePerm.display === 'granted' ? 'granted' : 'default';
             }
             if ('Notification' in window && Notification.permission !== 'granted') {
-                const perm = await Notification.requestPermission();
-                permissionRef.current = perm;
+                permissionRef.current = await Notification.requestPermission();
             }
-            setShowPrompt(false);
+            updateSettings?.({ notificationPermission: permissionRef.current });
             if (permissionRef.current === 'granted') {
+                await registerPushSubscription();
                 window.dispatchEvent(new CustomEvent('gs-notification', {
-                    detail: { title: 'Notifications enabled', body: 'You will see account updates, matches, and admin messages here.', count: unreadCount },
+                    detail: { title: 'Notifications enabled', body: 'GS messages and account alerts can now appear on your phone.', count: unreadCount },
                 }));
             }
-        } catch {
-            setShowPrompt(false);
-        }
+        } catch {}
     }
+
+    function publicVapidKeyToUint8Array(key) {
+        const padding = '='.repeat((4 - key.length % 4) % 4);
+        const base64 = (key + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = window.atob(base64);
+        return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
+    }
+
+    async function registerPushSubscription() {
+        if (!user?.id || typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidKey) return;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const existing = await registration.pushManager.getSubscription();
+            const subscription = existing || await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: publicVapidKeyToUint8Array(vapidKey),
+            });
+            await fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'push_subscription',
+                    memberId: user.id,
+                    email: user.email,
+                    subscription: subscription.toJSON(),
+                    permission: Notification.permission,
+                    platform: 'web-pwa',
+                    userAgent: navigator.userAgent,
+                }),
+            });
+        } catch {}
+    }
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handler = () => requestPermission();
+        window.addEventListener('gs-request-notifications', handler);
+        return () => window.removeEventListener('gs-request-notifications', handler);
+    }, [unreadCount]);
+
+    useEffect(() => {
+        if (typeof navigator === 'undefined') return;
+        const count = Math.max(0, unreadCount || 0);
+        if ('setAppBadge' in navigator) {
+            if (count > 0) navigator.setAppBadge(count).catch(() => {});
+            else navigator.clearAppBadge?.().catch(() => {});
+        }
+        navigator.serviceWorker?.ready
+            .then((registration) => {
+                registration.active?.postMessage({ type: 'GS_BADGE_COUNT', count });
+            })
+            .catch(() => {});
+        try { localStorage.setItem('gscom_badge_count', JSON.stringify({ count, label: formatBadge(count), at: Date.now() })); } catch {}
+    }, [unreadCount]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const previous = previousUnreadRef.current;
+        previousUnreadRef.current = unreadCount;
+        if (!settings.notifications || unreadCount <= previous || unreadCount <= 0) return;
+        if (document.visibilityState === 'visible') return;
+        window.dispatchEvent(new CustomEvent('gs-notification', {
+            detail: {
+                title: 'New GS activity',
+                body: `You have ${formatBadge(unreadCount)} unread message${unreadCount === 1 ? '' : 's'} or alert${unreadCount === 1 ? '' : 's'}.`,
+                count: unreadCount,
+            },
+        }));
+    }, [unreadCount, settings.notifications]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -136,21 +194,6 @@ export default function NotificationManager() {
         return () => window.removeEventListener('gs-notification', handleNotification);
     }, [settings.notifications, unreadCount]);
 
-    if (!showPrompt) return null;
-
-    return (
-        <button
-            type="button"
-            onClick={requestPermission}
-            className="fixed right-4 bottom-24 z-[70] flex items-center gap-2 rounded-full px-4 py-3 text-xs font-black text-white shadow-xl gradient-primary"
-            aria-label="Enable notifications"
-        >
-            <span className="relative flex h-5 w-5 items-center justify-center">
-                <Bell size={18} />
-                {unreadCount > 0 && <span className="absolute -right-2 -top-2 min-w-4 h-4 rounded-full bg-pink-500 px-1 text-[9px] leading-4">{formatBadge(unreadCount)}</span>}
-            </span>
-            Enable alerts
-        </button>
-    );
+    return null;
 }
 

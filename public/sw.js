@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'gscom-cache-v4';
+const CACHE_NAME = 'gscom-cache-v6';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
@@ -46,16 +46,47 @@ self.addEventListener('notificationclick', (event) => {
     })());
 });
 
+self.addEventListener('push', (event) => {
+    let payload = {};
+    try { payload = event.data ? event.data.json() : {}; } catch { payload = { title: 'GS notification', body: event.data?.text() || '' }; }
+    const title = payload.title || 'Genuine Sugar Mummies';
+    const count = Math.max(0, Math.min(99, Number(payload.count || 1)));
+    const options = {
+        body: payload.body || '',
+        icon: payload.icon || '/icons/icon-192.png',
+        badge: payload.badge || '/icons/icon-192.png',
+        image: payload.image || undefined,
+        tag: payload.tag || 'gs-push',
+        renotify: true,
+        vibrate: [160, 80, 160],
+        data: { url: payload.url || '/alerts', count, label: count > 99 ? '99+' : String(count) },
+    };
+    event.waitUntil((async () => {
+        if (self.navigator?.setAppBadge) {
+            if (count > 0) await self.navigator.setAppBadge(count).catch(() => {});
+            else await self.navigator.clearAppBadge?.().catch(() => {});
+        }
+        await self.registration.showNotification(title, options);
+    })());
+});
+
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    if (url.pathname.startsWith('/_next/') || url.pathname.startsWith('/api/') || url.hostname.includes('vercel')) {
+    if (url.pathname.startsWith('/_next/') || url.pathname.startsWith('/api/')) {
         event.respondWith(fetch(event.request));
         return;
     }
 
     if (event.request.mode === 'navigate') {
-        event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE_URL)));
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    if (!response || response.status >= 500) return caches.match(OFFLINE_URL);
+                    return response;
+                })
+                .catch(() => caches.match(OFFLINE_URL))
+        );
         return;
     }
 

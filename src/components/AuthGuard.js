@@ -8,7 +8,7 @@ import Logo from '@/components/Logo';
 function isProfileComplete(user) {
     if (!user) return false;
     const hasPhoto = Boolean(user.avatar_url || user.avatarUrl || user.photos?.[0]);
-    return Boolean(hasPhoto && user.bio && user.age && user.location);
+    return Boolean(hasPhoto && user.bio && user.age && user.location && (user.phone_number || user.phone));
 }
 
 export default function AuthGuard({ children }) {

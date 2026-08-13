@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserSupabaseClient, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { startPolling, POLL } from '@/lib/poll';
+import { clearCache } from '@/lib/cachedFetch';
 
 const AuthContext = createContext({});
 
@@ -327,6 +328,23 @@ export function AuthProvider({ children }) {
             window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
         } catch {}
     }, []);
+
+    /*
+      Whose responses are sitting in the cache.
+
+      cachedFetch keys on URL alone, and several of those URLs carry a viewer_id
+      whose response differs by account: phone numbers are masked or revealed
+      depending on the viewer's package. Clearing on sign out alone is not
+      enough, because the account can change without one, so this watches the
+      identity itself and empties the cache whenever it moves.
+    */
+    const cachedForRef = useRef(null);
+    useEffect(() => {
+        const identity = user?.id || null;
+        if (cachedForRef.current === identity) return;
+        cachedForRef.current = identity;
+        clearCache();
+    }, [user?.id]);
 
     // Refresh server account state so admin approvals and package unlocks reach the device.
     useEffect(() => {
@@ -903,6 +921,14 @@ export function AuthProvider({ children }) {
     }
 
     async function signOut() {
+        /*
+          Drop every cached API response before anything else. cachedFetch keys
+          on URL alone, and some of those URLs carry a viewer_id whose response
+          differs per account: phone numbers are masked or revealed depending on
+          the viewer's package. Leaving the cache in place across a sign out on a
+          shared phone would show the next person the previous one's view.
+        */
+        clearCache();
         setStored(STORAGE_KEYS.SIGNED_OUT_UNTIL, Date.now() + 2 * 60 * 1000);
         try {
             if (isSupabaseConfigured()) {

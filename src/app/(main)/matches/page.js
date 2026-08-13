@@ -10,6 +10,7 @@ import VerifiedBadge from '@/components/VerifiedBadge';
 import LiveNowStrip from '@/components/LiveNowStrip';
 import BoostedMembersStrip from '@/components/BoostedMembersStrip';
 import StoriesStrip from '@/components/StoriesStrip';
+import { cachedFetch, TTL } from '@/lib/cachedFetch';
 
 function getLocalMap(key) {
     if (typeof window === 'undefined') return {};
@@ -96,9 +97,8 @@ export default function MatchesPage() {
         setFollowed(getLocalMap('gscom_followed_members'));
         async function load() {
             try {
-                const res = await fetch('/api/members?per_page=240');
-                const data = await res.json();
-                setMembers(data.members || []);
+                const data = await cachedFetch('/api/members?per_page=240', { ttl: TTL.MEMBERS });
+                setMembers(data?.members || []);
             } finally {
                 setLoading(false);
             }

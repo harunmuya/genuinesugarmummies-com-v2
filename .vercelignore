@@ -1,0 +1,10 @@
+android/.gradle
+android/build
+android/app/build
+android/capacitor-cordova-android-plugins/build
+node_modules
+.next
+.git
+*.jks
+*.keystore
+android/keystores

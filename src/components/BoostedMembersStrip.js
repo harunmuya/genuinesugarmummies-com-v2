@@ -6,6 +6,7 @@ import { Rocket } from 'lucide-react';
 import UserAvatar from '@/components/UserAvatar';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { startPolling, POLL } from '@/lib/poll';
+import { cachedFetch, TTL } from '@/lib/cachedFetch';
 
 function memberPath(member) {
     return member?.id ? '/members/' + member.id : '/members';
@@ -37,12 +38,10 @@ export default function BoostedMembersStrip({ title = 'Boosted Members', limit =
         let alive = true;
         async function loadBoosted() {
             try {
-                const res = await fetch(`/api/members?boosted=1&per_page=${limit}`);
-                const data = await res.json().catch(() => ({}));
-                if (alive && res.ok) setMembers(data.members || []);
+                const data = await cachedFetch(`/api/members?boosted=1&per_page=${limit}`, { ttl: TTL.STRIP });
+                if (alive && data) setMembers(data.members || []);
             } catch {}
         }
-        loadBoosted();
         const stop = startPolling(loadBoosted, POLL.STRIP);
         return () => { alive = false; stop(); };
     }, [limit]);

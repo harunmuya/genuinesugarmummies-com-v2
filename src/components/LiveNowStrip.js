@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Radio } from 'lucide-react';
 import UserAvatar from '@/components/UserAvatar';
 import { startPolling, POLL } from '@/lib/poll';
+import { cachedFetch, TTL } from '@/lib/cachedFetch';
 
 function liveDuration(startedAt) {
     const started = startedAt ? new Date(startedAt).getTime() : 0;
@@ -21,12 +22,10 @@ export default function LiveNowStrip({ title = 'Featured Live Now', limit = 8, s
         let alive = true;
         async function loadLiveStreams() {
             try {
-                const res = await fetch('/api/live');
-                const data = await res.json().catch(() => ({}));
-                if (alive && res.ok) setStreams(data.streams || []);
+                const data = await cachedFetch('/api/live', { ttl: TTL.LIVE });
+                if (alive && data) setStreams(data.streams || []);
             } catch {}
         }
-        loadLiveStreams();
         const stop = startPolling(loadLiveStreams, POLL.LIVE);
         return () => { alive = false; stop(); };
     }, []);
