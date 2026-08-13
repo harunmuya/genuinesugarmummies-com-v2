@@ -11,7 +11,7 @@ import LiveNowStrip from '@/components/LiveNowStrip';
 import BoostedMembersStrip from '@/components/BoostedMembersStrip';
 import StoriesStrip from '@/components/StoriesStrip';
 import { useAuth } from '@/contexts/AuthContext';
-import { cachedFetch, TTL } from '@/lib/cachedFetch';
+import { usePagedMembers, useInfiniteScroll } from '@/lib/usePagedMembers';
 
 const MODES = [
     { id: 'all', label: 'Show All' },
@@ -107,18 +107,21 @@ function useFallbackAvatar(event, name) {
 export default function MembersPage() {
     const router = useRouter();
     const { user, guest } = useAuth();
-    const [members, setMembers] = useState([]);
     const [mode, setMode] = useState('all');
     const [label, setLabel] = useState('all');
     const [search, setSearch] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [schemaReady, setSchemaReady] = useState(true);
     const [followed, setFollowed] = useState({});
     const [notice, setNotice] = useState('');
 
+    /*
+      per_page was 240: most of a megabyte of a 52 column select before
+      anything appeared, for a list nobody scrolls to the end of. The hook
+      requests 24 at a time and appends as the user reaches the bottom.
+
+      per_page is deliberately not set here — usePagedMembers owns paging.
+    */
     const query = useMemo(() => {
-        const params = new URLSearchParams({ mode, label, per_page: '240' });
+        const params = new URLSearchParams({ mode, label });
         if (search.trim()) params.set('search', search.trim());
         return params.toString();
     }, [mode, label, search]);
@@ -129,30 +132,13 @@ export default function MembersPage() {
         }
     }, []);
 
-    useEffect(() => {
-        let alive = true;
-        async function loadMembers() {
-            setLoading(true);
-            setError('');
-            try {
-                const data = await cachedFetch(`/api/members?${query}`, { ttl: TTL.MEMBERS });
-                if (!alive) return;
-                if (!data) {
-                    setError('Members are unavailable right now.');
-                    return;
-                }
-                setMembers(data.members || []);
-                setSchemaReady(data.schemaReady !== false && !data.setupRequired);
-                if (data.error) setError(data.error);
-            } catch {
-                if (alive) setError('Members are unavailable right now.');
-            } finally {
-                if (alive) setLoading(false);
-            }
-        }
-        loadMembers();
-        return () => { alive = false; };
-    }, [query]);
+    const {
+        members, loading, loadingMore, hasMore, error, schemaReady, loadMore, setMembers,
+    } = usePagedMembers(query);
+
+    // Fires a screen before the bottom, so the next page is usually already
+    // there by the time the user gets there.
+    const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loading });
 
     const visibleMembers = mode === 'following' ? members.filter((member) => followed[member.id]) : members;
 
@@ -368,6 +354,25 @@ export default function MembersPage() {
                         </motion.article>
                     ))}
                 </section>
+            )}
+
+            {/*
+              The sentinel sits outside the empty check so it still exists while
+              a filter is showing nothing, and outside the grid so it is not a
+              grid item.
+            */}
+            {!loading && hasMore && <div ref={sentinelRef} aria-hidden className="h-px w-full" />}
+
+            {loadingMore && (
+                <div className="flex items-center justify-center py-8 text-primary">
+                    <Loader2 size={22} className="animate-spin" />
+                </div>
+            )}
+
+            {!loading && !hasMore && visibleMembers.length > 0 && (
+                <p className="py-8 text-center text-xs text-text-muted">
+                    That is everyone matching this filter.
+                </p>
             )}
         </div>
     );
