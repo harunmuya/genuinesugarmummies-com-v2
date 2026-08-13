@@ -66,6 +66,7 @@ public class MainActivity extends BridgeActivity {
         WebSettings settings = bridge.getWebView().getSettings();
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setDomStorageEnabled(true);
+        announceShellVersion(settings);
 
         bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(bridge) {
             @Override
@@ -145,6 +146,36 @@ public class MainActivity extends BridgeActivity {
             return android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType);
         } catch (Exception ignored) {
             return "download";
+        }
+    }
+
+    /**
+     * Put this shell's version code into the User-Agent.
+     *
+     * The web layer is deployed separately and updates itself on every reload,
+     * but the native shell only changes when someone installs a new APK. So the
+     * page has to be able to tell which shell it is running inside, or it cannot
+     * know whether to offer an update.
+     *
+     * Nothing carried that information before, which is why there was no update
+     * prompt at all: there was no way to write one.
+     *
+     * Appending rather than replacing matters. The rest of the User-Agent is
+     * what the WebView tells sites about itself, and replacing it breaks
+     * feature detection in ways that are hard to trace back here.
+     *
+     * Note that versionCode 3, which is what members are running today, does not
+     * do this. The page treats a Capacitor WebView with no GSGlobal token as an
+     * old shell, which is exactly the case that needs the prompt.
+     */
+    private void announceShellVersion(WebSettings settings) {
+        try {
+            int versionCode = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0).versionCode;
+            settings.setUserAgentString(
+                    settings.getUserAgentString() + " GSGlobal/" + versionCode);
+        } catch (Exception ignored) {
+            // A missing version is not worth failing to start over.
         }
     }
 

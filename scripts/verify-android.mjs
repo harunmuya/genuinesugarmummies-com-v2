@@ -86,6 +86,58 @@ console.log('\nAnd the WebView is allowed to answer for them');
         'permissions are requested when the page asks, with the reason on screen');
 }
 
+console.log('\nMembers on an old shell are told about the new one');
+{
+    /*
+      Before this existed there was no version endpoint and no prompt, so
+      versionCode 3 sat on phones with no camera or microphone permission and
+      no way to hear about the build that had them.
+    */
+    const route = join('src', 'app', 'api', 'app-version', 'route.js');
+    check('there is a version endpoint', existsSync(route));
+
+    if (existsSync(route)) {
+        const src = readFileSync(route, 'utf8');
+        const gradleRaw = readFileSync(join('android', 'app', 'build.gradle'), 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+        const built = Number((gradleRaw.match(/versionCode\s+(\d+)/) || [])[1] || 0);
+        const advertised = Number((src.match(/versionCode:\s*(\d+)/) || [])[1] || 0);
+
+        /*
+          Drift here is worse than no endpoint. Advertising a version higher
+          than the APK actually served means the prompt reappears after every
+          successful install, because the shell can never reach the number it
+          is being compared against.
+        */
+        check('it advertises exactly what the project builds', advertised === built,
+            `endpoint ${advertised}, gradle ${built}`);
+
+        const prompt = join('src', 'components', 'UpdatePrompt.js');
+        check('and something shows it', existsSync(prompt));
+        if (existsSync(prompt)) {
+            const ui = readFileSync(prompt, 'utf8');
+            /*
+              versionCode 3 does not announce itself, so absence of the token
+              has to be read as "old shell". Treating it as unknown-so-silent
+              would leave exactly the members who need the update seeing
+              nothing.
+            */
+            check('an unannounced shell counts as out of date',
+                /installed === null \|\| installed <|installed == null \|\| installed </.test(ui),
+                'versionCode 3 predates the User-Agent token');
+            check('and it stays out of the way on the web', /isNativePlatform|Capacitor/.test(ui),
+                'this is a website too; offering an APK to a laptop is noise');
+        }
+
+        const activity2 = readFileSync(
+            join('android', 'app', 'src', 'main', 'java', 'com', 'genuinesugarmummies',
+                'global', 'MainActivity.java'), 'utf8');
+        check('the shell puts its version in the User-Agent', /GSGlobal\/"/.test(activity2));
+        check('by appending, not replacing', /getUserAgentString\(\) \+/.test(activity2),
+            'replacing it breaks feature detection in ways hard to trace back');
+    }
+}
+
 console.log('\nA release installs over what members already have');
 {
     const gradle = readFileSync(join('android', 'app', 'build.gradle'), 'utf8')
