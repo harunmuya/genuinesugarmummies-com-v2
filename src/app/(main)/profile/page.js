@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -8,10 +8,13 @@ import {
     Settings, ChevronRight, Heart, MessageCircle, Bell, Bookmark,
     MapPin, Edit3, Plus, X, Send, AlertTriangle, ExternalLink,
     Info, HelpCircle, Trash, Clock, Gem, Users, PackageCheck, Headphones,
+    Eye, Lock, Phone, SlidersHorizontal, UserCog, Image as ImageIcon, Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import UserAvatar from '@/components/UserAvatar';
 import VerifiedBadge from '@/components/VerifiedBadge';
+import StoriesStrip from '@/components/StoriesStrip';
+import AccountActivityPanel from '@/components/AccountActivityPanel';
 
 const PREFERENCE_LABELS = {
     sugar_mummy_looking_for_toyboy: 'Sugar Mummy seeking Sugar Guy / Toyboy',
@@ -25,7 +28,7 @@ export default function ProfilePage() {
         user, guest, profile, likes, matches, saved, messages,
         verificationStatus, verificationTimer, settings, preference, liveLocationData,
         signOut, updateProfile, addPhoto, removePhoto,
-        updateSettings, updatePreference, verifyProfile, clearVerification, deleteAccount,
+        updateSettings, updatePreference, verifyProfile, clearVerification, deleteAccount, addMessage,
     } = useAuth();
 
     const [activeSection, setActiveSection] = useState(null);
@@ -35,8 +38,9 @@ export default function ProfilePage() {
     const [showPreferencePicker, setShowPreferencePicker] = useState(false);
     const [moderationCountdown, setModerationCountdown] = useState('');
     const [verificationForm, setVerificationForm] = useState({ selfieDataUrl: '', documentDataUrl: '', documentType: 'id', phone: profile?.phone_number || profile?.phone || '' });
-    const [supportForm, setSupportForm] = useState({ subject: '', message: '' });
+    const [supportForm, setSupportForm] = useState({ service: 'payment_issue', subject: '', message: '' });
     const [supportStatus, setSupportStatus] = useState('');
+    const [signingOut, setSigningOut] = useState(false);
     const fileInputRef = useRef(null);
     const selfieInputRef = useRef(null);
     const documentInputRef = useRef(null);
@@ -47,9 +51,15 @@ export default function ProfilePage() {
     const canRevealPhone = packageApproved && ['silver', 'gold', 'diamond'].includes(currentTier);
     const canUseBasic = packageApproved && ['basic', 'silver', 'gold', 'diamond'].includes(currentTier);
     const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Guest';
+    const username = String(displayName || 'member').trim().toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || 'member';
     const userPhotos = profile?.photos || [];
-    const profileComplete = Boolean((profile?.avatar_url || userPhotos[0]) && profile?.bio && profile?.age && profile?.location);
+    const profilePhotoMissing = !(profile?.avatar_url || userPhotos[0]);
+    const profileComplete = Boolean((profile?.avatar_url || userPhotos[0]) && profile?.bio && profile?.age && profile?.location && (profile?.phone_number || profile?.phone));
     const effectiveVerificationStatus = profile?.verification_status || verificationStatus;
+    const unreadMessages = messages.filter((item) => !item.read).length;
+    const accountStatus = profileComplete ? (settings.isPublic ? 'Visible in Members' : 'Hidden by Privacy') : 'Profile incomplete';
+    const verificationLabel = effectiveVerificationStatus === 'verified' ? 'Verified' : effectiveVerificationStatus === 'pending_admin' ? 'Under review' : effectiveVerificationStatus === 'reverify_required' ? 'Reverify needed' : 'Not verified';
+    const packageLabel = packageApproved ? `${currentTier.toUpperCase()} active` : 'Free account';
     const missingFields = [
         !(profile?.avatar_url || userPhotos[0]) && 'profile photo',
         !profile?.bio && 'bio',
@@ -140,7 +150,17 @@ export default function ProfilePage() {
     };
 
     const submitSupportTicket = async () => {
-        const subject = supportForm.subject.trim() || 'Support request';
+        const serviceLabels = {
+            payment_issue: 'Payment issue',
+            package_unlock: 'Package unlock',
+            refund: 'Refund or cancellation',
+            verification: 'Verification help',
+            safety_report: 'Report scam or fake profile',
+            account_profile: 'Account or profile',
+            direct_connection: 'Direct connection service',
+            general: 'General support',
+        };
+        const subject = supportForm.subject.trim() || serviceLabels[supportForm.service] || 'Support request';
         const message = supportForm.message.trim();
         if (message.length < 3) { setSupportStatus('Write a short message for support.'); return; }
         setSupportStatus('Submitting...');
@@ -148,12 +168,29 @@ export default function ProfilePage() {
             const res = await fetch('/api/members', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'support_ticket', memberId: profile?.id || user?.id, subject, message }),
+                body: JSON.stringify({
+                    action: 'support_ticket',
+                    memberId: profile?.id || user?.id,
+                    email: user?.email || profile?.email || '',
+                    display_name: profile?.display_name || user?.display_name || '',
+                    subject,
+                    message,
+                    service: supportForm.service,
+                }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Support request failed.');
-            setSupportStatus('Support ticket submitted. Admin can see it in Tickets.');
-            setSupportForm({ subject: '', message: '' });
+            if (data.autoResponse) {
+                addMessage({
+                    type: 'ticket_auto_response',
+                    sender: data.autoResponse.senderLabel || data.autoResponse.team || 'GS Support',
+                    title: data.autoResponse.title,
+                    body: data.autoResponse.body,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+            setSupportStatus(data.autoResponse?.shortStatus || 'Ticket submitted. A team reply has been sent to your inbox and email.');
+            setSupportForm({ service: 'payment_issue', subject: '', message: '' });
         } catch (error) {
             setSupportStatus(error.message || 'Support request failed.');
         }
@@ -172,7 +209,12 @@ export default function ProfilePage() {
         setEditField(null);
     };
 
-    const handleSignOut = () => { signOut(); window.location.href = '/auth/login'; };
+    const handleSignOut = async () => {
+        if (signingOut) return;
+        setSigningOut(true);
+        await signOut();
+        window.location.replace('/auth/login?signed_out=1');
+    };
     const handleDeleteAccount = () => { deleteAccount(); window.location.href = '/auth/login'; };
 
     return (
@@ -181,21 +223,18 @@ export default function ProfilePage() {
             <div className="rounded-2xl p-5 text-center space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                 <div className="relative inline-block">
                     <UserAvatar name={displayName} src={profile?.avatar_url} size={80} />
-                    {effectiveVerificationStatus === 'verified' && (
-                        <div className="absolute -bottom-1 -right-1"><VerifiedBadge size={24} /></div>
-                    )}
                 </div>
                 <div>
                     <h2 className="text-xl font-black text-text-primary flex items-center justify-center gap-1.5">
                         {displayName}
                         {effectiveVerificationStatus === 'verified' && <VerifiedBadge size={18} />}
                     </h2>
-                    {isLoggedIn && <p className="text-xs text-text-muted">{user.email}</p>}
+                    {isLoggedIn && <p className="text-xs text-text-muted">@{username} - {profile?.location || 'Location not set'}</p>}
                     {guest && <p className="text-xs text-primary font-medium">Guest Mode</p>}
                     {/* Preference badge */}
                     {isLoggedIn && preference && (
                         <button
-                            onClick={() => !profile?.preference_locked && setShowPreferencePicker(true)}
+                            onClick={() => setShowPreferencePicker(true)}
                             className="mt-1 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-primary"
                             style={{ background: 'rgba(124,58,237,0.08)' }}
                         >
@@ -205,20 +244,86 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Stats */}
-                <div className="flex items-center justify-center gap-6 pt-2">
+                <div className="grid grid-cols-4 gap-2 pt-2">
                     {[
                         { value: likes.length, label: 'Likes' },
                         { value: matches.length, label: 'Matches' },
                         { value: saved.length, label: 'Saved' },
-                        { value: messages.length, label: 'Messages' },
+                        { value: unreadMessages > 0 ? `${unreadMessages}/${messages.length}` : messages.length, label: 'Messages' },
                     ].map(s => (
-                        <div key={s.label} className="text-center">
+                        <div key={s.label} className="text-center rounded-xl p-2" style={{ background: 'var(--color-surface)' }}>
                             <p className="text-lg font-black text-primary">{s.value}</p>
                             <p className="text-[10px] text-text-muted font-medium">{s.label}</p>
                         </div>
                     ))}
                 </div>
             </div>
+
+            {isLoggedIn && profilePhotoMissing && (
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.20)' }}>
+                    <div className="flex items-start gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-danger/10 text-danger flex items-center justify-center shrink-0"><Camera size={21} /></div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-black text-danger">Profile photo required</p>
+                            <p className="text-xs text-text-secondary leading-relaxed">Your account stays off the Members page until you upload a clear profile picture. This protects real members and keeps the site clean.</p>
+                        </div>
+                    </div>
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full rounded-2xl py-3 text-sm font-black text-white bg-danger flex items-center justify-center gap-2"><Camera size={16} /> Upload Profile Photo</button>
+                </div>
+            )}
+
+            {isLoggedIn && (
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-black text-text-primary">Account Center</h3>
+                            <p className="text-xs text-text-muted">Manage your profile, membership, privacy, messages, saves, support, and verification.</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black text-primary bg-primary/10">{packageLabel}</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                        {[
+                            { label: 'Edit', icon: UserCog, href: '#profile-info' },
+                            { label: 'Photos', icon: ImageIcon, href: '#photos' },
+                            { label: 'Messages', icon: MessageCircle, href: '/messages', count: unreadMessages },
+                            { label: 'Alerts', icon: Bell, href: '/alerts', count: unreadMessages },
+                            { label: 'Saved', icon: Bookmark, href: '#saved' },
+                            { label: 'Pro', icon: Gem, href: '/packages' },
+                            { label: 'Verify', icon: ShieldCheck, href: '#verification' },
+                            { label: 'Privacy', icon: Lock, href: '#privacy' },
+                            { label: 'Status', icon: Eye, href: '#status' },
+                            { label: 'Prefs', icon: SlidersHorizontal, action: () => setShowPreferencePicker(true) },
+                            { label: 'Phone', icon: Phone, href: '#profile-info' },
+                            { label: 'Support', icon: Headphones, href: '#support' },
+                            { label: 'Wallet', icon: Wallet, href: '/wallet' },
+                        ].map((item) => {
+                            const Icon = item.icon;
+                            const content = (
+                                <>
+                                    <span className="relative mx-auto w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                                        <Icon size={18} />
+                                        {item.count > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-secondary text-white text-[9px] leading-4 px-1">{item.count > 99 ? '99+' : item.count}</span>}
+                                    </span>
+                                    <span className="text-[10px] font-black text-text-secondary">{item.label}</span>
+                                </>
+                            );
+                            if (item.action) return <button key={item.label} type="button" onClick={item.action} className="rounded-2xl p-2 space-y-1.5 text-center" style={{ background: 'var(--color-surface)' }}>{content}</button>;
+                            return <Link key={item.label} href={item.href} className="rounded-2xl p-2 space-y-1.5 text-center" style={{ background: 'var(--color-surface)' }}>{content}</Link>;
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {isLoggedIn && <StoriesStrip title="My 24 Hour Stories" />}
+            {isLoggedIn && <AccountActivityPanel />}
+
+            {isLoggedIn && (
+                <section id="status" className="grid grid-cols-3 gap-2">
+                    <StatusTile icon={Eye} label="Public Status" value={accountStatus} tone={profileComplete && settings.isPublic ? 'success' : 'gold'} />
+                    <StatusTile icon={ShieldCheck} label="Verification" value={verificationLabel} tone={effectiveVerificationStatus === 'verified' ? 'success' : 'gold'} />
+                    <StatusTile icon={PackageCheck} label="Membership" value={packageLabel} tone={packageApproved ? 'success' : 'primary'} />
+                </section>
+            )}
 
             {isLoggedIn && !profileComplete && (
                 <div className="rounded-2xl p-4 space-y-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)' }}>
@@ -228,7 +333,7 @@ export default function ProfilePage() {
             )}
 
             {isLoggedIn && (
-                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                <div id="photos" className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5"><PackageCheck size={16} className="text-primary" /> Package Access</h3>
                     <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="rounded-xl p-3 bg-primary/10"><p className="text-[10px] text-text-muted">Tier</p><p className="text-sm font-black text-primary">{currentTier.toUpperCase()}</p></div>
@@ -241,7 +346,7 @@ export default function ProfilePage() {
 
             {/* ===== PHOTOS (always-visible delete button) ===== */}
             {isLoggedIn && (
-                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                <div id="verification" className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                         <Camera size={16} className="text-primary" /> My Photos
                     </h3>
@@ -330,7 +435,7 @@ export default function ProfilePage() {
             )}
             {/* ===== PROFILE INFO (editable) ===== */}
             {isLoggedIn && (
-                <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                <div id="profile-info" className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                         <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                             <Edit3 size={16} className="text-primary" /> Profile Info
@@ -364,7 +469,7 @@ export default function ProfilePage() {
 
             {/* ===== MESSAGES ===== */}
             {isLoggedIn && messages.length > 0 && (
-                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                <div id="messages" className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                         <MessageCircle size={16} className="text-primary" /> Messages ({messages.length})
                     </h3>
@@ -379,13 +484,37 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     ))}
+                    <Link href="/alerts" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black bg-primary/10 text-primary">Open Full Inbox</Link>
+                </div>
+            )}
+
+            {isLoggedIn && (
+                <div id="saved" className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                    <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5"><Bookmark size={16} className="text-primary" /> Saved Profiles & Posts</h3>
+                        <Link href="/matches" className="text-xs font-black text-primary">Open</Link>
+                    </div>
+                    {saved.length === 0 ? (
+                        <p className="text-xs text-text-muted">Profiles and featured posts you save will appear here.</p>
+                    ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                            {saved.slice(0, 6).map((item) => (
+                                <Link key={item.wpId || item.id} href={savedProfilePath(item)} className="space-y-1">
+                                    <div className="aspect-square rounded-xl overflow-hidden bg-primary/10">
+                                        {item.imageUrl || item.avatarUrl ? <img src={item.imageUrl || item.avatarUrl} alt="" className="w-full h-full object-cover" /> : <UserAvatar name={item.name || 'Saved'} size={52} />}
+                                    </div>
+                                    <p className="text-[10px] font-bold text-text-secondary truncate">{item.name || 'Saved'}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
 
             {/* ===== SETTINGS ===== */}
             {isLoggedIn && (
-                <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                <div id="privacy" className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
                         <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                             <Settings size={16} className="text-primary" /> Settings
@@ -393,20 +522,23 @@ export default function ProfilePage() {
                     </div>
 
                     {[
-                        { key: 'notifications', label: 'Push Notifications' },
-                        { key: 'darkMode', label: 'Dark Mode' },
-                        { key: 'showOnline', label: 'Show Online Status' },
-                        { key: 'showAge', label: 'Show Age' },
-                        { key: 'isPublic', label: 'Public Profile' },
-                        { key: 'emailNotifications', label: 'Email Updates' },
-                        { key: 'liveLocation', label: 'Live Location Matching' },
+                        { key: 'notifications', label: 'Push Notifications', desc: 'Installed app alerts and badge counts' },
+                        { key: 'darkMode', label: 'Dark Mode', desc: 'Switch your account display theme' },
+                        { key: 'showOnline', label: 'Show Online Status', desc: 'Let members see when you are active' },
+                        { key: 'showAge', label: 'Show Age', desc: 'Show or hide your age on public profile' },
+                        { key: 'isPublic', label: 'Public Profile', desc: 'Allow your profile to appear in Members' },
+                        { key: 'emailNotifications', label: 'Email Updates', desc: 'Receive admin updates by email' },
+                        { key: 'liveLocation', label: 'Live Location Matching', desc: 'Use location for better suggestions' },
                     ].map((setting) => (
                         <div key={setting.key}
                             className="flex items-center justify-between px-4 py-3"
                             style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}
                         >
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-text-primary">{setting.label}</span>
+                                <div>
+                                    <span className="text-sm font-bold text-text-primary block">{setting.label}</span>
+                                    <span className="text-[10px] text-text-muted block">{setting.desc}</span>
+                                </div>
                                 {setting.key === 'liveLocation' && settings.liveLocation && liveLocationData?.city && (
                                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
                                         <MapPin size={10} /> {liveLocationData.city}
@@ -425,8 +557,18 @@ export default function ProfilePage() {
             )}
 
             {/* ===== SUPPORT & HELP ===== */}
-            <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+            <div id="support" className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                 <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5"><Headphones size={16} className="text-primary" /> Support & Help</h3>
+                <select value={supportForm.service} onChange={(e) => setSupportForm({ ...supportForm, service: e.target.value })} className="w-full rounded-xl py-3 px-3 text-sm" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }}>
+                    <option value="payment_issue">Payment issue</option>
+                    <option value="package_unlock">Package unlock approval</option>
+                    <option value="refund">Refund or cancellation</option>
+                    <option value="verification">Verification help</option>
+                    <option value="safety_report">Report scam or fake profile</option>
+                    <option value="account_profile">Account or profile help</option>
+                    <option value="direct_connection">Direct connection service</option>
+                    <option value="general">General support</option>
+                </select>
                 <input value={supportForm.subject} onChange={(e) => setSupportForm({ ...supportForm, subject: e.target.value })} placeholder="Subject" className="w-full rounded-xl py-3 px-3 text-sm" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }} />
                 <textarea value={supportForm.message} onChange={(e) => setSupportForm({ ...supportForm, message: e.target.value })} placeholder="Tell support what you need" rows={3} className="w-full rounded-xl py-3 px-3 text-sm resize-none" style={{ background: 'var(--color-surface)', border: 'var(--card-border)' }} />
                 <button onClick={submitSupportTicket} className="w-full py-3 rounded-xl font-bold text-white gradient-primary flex items-center justify-center gap-2"><Send size={16} /> Submit Ticket</button>
@@ -436,11 +578,11 @@ export default function ProfilePage() {
             {/* ===== SIGN OUT / DELETE ===== */}
             <div className="space-y-2">
                 {isLoggedIn && (
-                    <button onClick={handleSignOut}
+                    <button onClick={handleSignOut} disabled={signingOut}
                         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-text-primary transition-colors hover:bg-gray-100"
                         style={{ border: '1px solid rgba(0,0,0,0.1)' }}
                     >
-                        <LogOut size={18} /> Sign Out
+                        <LogOut size={18} /> {signingOut ? 'Signing Out...' : 'Sign Out'}
                     </button>
                 )}
                 {isLoggedIn && (
@@ -499,9 +641,17 @@ export default function ProfilePage() {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <h3 className="text-lg font-bold text-text-primary text-center">Your Preference</h3>
+                            {profile?.preference_locked && (
+                                <div className="rounded-2xl p-3 text-xs leading-relaxed text-primary bg-primary/10">
+                                    Your account type is locked after registration so members see the right matches. Contact support if this was selected by mistake.
+                                </div>
+                            )}
                             {Object.entries(PREFERENCE_LABELS).map(([key, label]) => (
                                 <button key={key}
-                                    onClick={() => { updatePreference(key); setShowPreferencePicker(false); }}
+                                    onClick={() => {
+                                        if (!profile?.preference_locked) updatePreference(key);
+                                        setShowPreferencePicker(false);
+                                    }}
                                     className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all"
                                     style={{
                                         background: preference === key ? 'rgba(124,58,237,0.08)' : 'transparent',
@@ -551,6 +701,26 @@ export default function ProfilePage() {
     );
 }
 
+function savedProfilePath(item) {
+    if (String(item?.wpId || '').startsWith('member:')) return '/members/' + String(item.wpId).slice(7);
+    return item?.memberId ? '/members/' + item.memberId : item?.id ? '/members/' + item.id : '/matches';
+}
 
-
-
+function StatusTile({ icon: Icon, label, value, tone = 'primary' }) {
+    const colors = {
+        primary: 'text-primary bg-primary/10',
+        success: 'text-success bg-success/10',
+        gold: 'text-gold bg-amber-100',
+    };
+    return (
+        <div className="rounded-2xl p-3 min-h-[96px] flex flex-col justify-between" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+            <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${colors[tone] || colors.primary}`}>
+                <Icon size={17} />
+            </div>
+            <div>
+                <p className="text-[10px] font-bold text-text-muted">{label}</p>
+                <p className="text-xs font-black text-text-primary leading-tight">{value}</p>
+            </div>
+        </div>
+    );
+}
