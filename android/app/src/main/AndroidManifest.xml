@@ -35,16 +35,91 @@
         </provider>
     </application>
 
+    <!--
+      Only camera, microphone, location and notifications were declared, so
+      picking a profile photo from the gallery, saving a received image, and
+      anything to do with nearby devices had no permission to ask for. A
+      permission that is not declared here cannot be granted at runtime no
+      matter what the WebView requests, so those features failed silently.
+
+      Android split these across versions, which is why several appear twice
+      with maxSdkVersion. Getting that wrong means the permission is either
+      missing on old phones or flagged as over-broad on new ones.
+    -->
+
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Holds the screen on for the duration of a call. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Calls and profile photos. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!--
+      Photos and media.
+
+      Android 13 replaced READ_EXTERNAL_STORAGE with per-type media
+      permissions, and Android 14 added a "selected photos only" grant. All
+      three are needed to cover the range of devices in use, with the old one
+      capped so it is not requested where it no longer applies.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!--
+      Nearby devices. Bluetooth is how a call reaches a headset or car speaker,
+      and from Android 12 that needs the new runtime permissions rather than
+      the old install-time ones.
+    -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+
+    <!--
+      Keeps a call alive when the user leaves the app. Without the typed
+      service permissions Android 14 and later refuse to start it.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+
+    <!-- Lets the in-app update prompt install the APK it downloads. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!--
+      Every feature stays optional. Marking any of these required would hide
+      the app on Google Play from devices lacking the hardware, and a phone
+      without a front camera can still browse, message and read profiles.
+    -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 </manifest>

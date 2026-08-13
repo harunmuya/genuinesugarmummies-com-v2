@@ -5,8 +5,12 @@
   defaults, so the status bar and system chrome were whatever the framework
   happened to ship rather than anything to do with this app.
 
-  These match the web theme: --color-bg-dark for the chrome and --color-primary
-  for accents, so the native frame and the WebView inside it are the same app.
+  These match the web theme tokens (color-bg-dark for the chrome, color-primary
+  for accents), so the native frame and the WebView inside it are the same app.
+
+  Note for editors: an XML comment may not contain a double hyphen, so the CSS
+  variable names are written here without their leading dashes. Including them
+  fails the resource merger with a message that does not mention comments.
 -->
 <resources>
     <color name="colorPrimary">#0A0E12</color>
