@@ -1,60 +1,104 @@
 ﻿@import "tailwindcss";
 
-/* ---- GS clean social dating theme ---- */
+/* ---- GS Global: dark-first identity ----
+
+  This app and the Kenya app (V1) were reading as two builds of one product.
+  They differed in colour, but they shared the Outfit typeface and an identical
+  16/24px corner scale, and shape and type are most of what makes two interfaces
+  feel related.
+
+  So this direction is deliberately the opposite of V1's: dark surfaces instead
+  of light, electric teal instead of rose, Space Grotesk instead of Outfit, and
+  a tighter 6/10/14/20 corner scale against V1's 8/12/16/24.
+
+  A dark theme already existed here, but nothing in the app ever set data-theme,
+  so it was unreachable and the interface was permanently light. Dark is now the
+  default and light is the opt-in variant, which is why these values look
+  swapped rather than rewritten.
+
+  Every variable name from the old theme is kept. Six hundred lines of CSS below
+  and every component read these, so renaming them would have been a rewrite
+  with nothing to show for it.
+*/
 :root {
-  --color-primary: #0E8F83;
-  --color-primary-light: #7DD3C7;
-  --color-primary-dark: #075E56;
-  --color-secondary: #F04472;
-  --color-accent: #F7A928;
-  --color-bg-dark: #F7FAF9;
-  --color-bg-card: #ffffff;
-  --color-bg-input: #F3FBF8;
-  --color-surface: #F2F7F5;
-  --color-surface-light: #E2F3EF;
-  --color-text-primary: #15201F;
-  --color-text-secondary: #324846;
-  --color-text-muted: #71817F;
-  --color-gold: #C98209;
-  --color-success: #0E9F6E;
-  --color-danger: #E0314F;
-  --color-verified: #2D9CDB;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --shadow-card: 0 8px 28px rgba(21, 32, 31, 0.08);
-  --shadow-lg: 0 18px 48px rgba(21, 32, 31, 0.14);
-  --gradient-primary: linear-gradient(135deg, #0E8F83 0%, #19A7CE 48%, #F04472 100%);
-  --gradient-secondary: linear-gradient(135deg, #2FBF71 0%, #19A7CE 100%);
-  --gradient-accent: linear-gradient(135deg, #F7A928 0%, #F04472 100%);
-  --gradient-gold: linear-gradient(135deg, #F6C453 0%, #C98209 100%);
+  /* Electric teal, far from V1's #C21E56 rose in both hue and temperature. */
+  --color-primary: #14E0C8;
+  --color-primary-light: #7FF3E6;
+  --color-primary-dark: #0B9E8D;
+  --color-secondary: #FF5C7A;
+  --color-accent: #FFB020;
+
+  /* Cool near-black. The old dark theme was green-black (#071312); this is
+     bluer, so the teal reads as a light source rather than as more background. */
+  --color-bg-dark: #0A0E12;
+  --color-bg-card: #131A21;
+  --color-bg-input: #161F27;
+  --color-surface: #1A232B;
+  --color-surface-light: #24303A;
+
+  --color-text-primary: #F2F6F8;
+  --color-text-secondary: #AFC0CC;
+  --color-text-muted: #6F8494;
+
+  --color-gold: #E8B04B;
+  --color-success: #22C55E;
+  --color-danger: #FF4D6A;
+  --color-verified: #3FA9F5;
+
+  /* Tighter than V1 throughout. sm, md and pill are new: the old theme defined
+     only lg and xl, so anything wanting a small corner hard-coded one. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* On a dark ground a soft grey shadow is invisible. Depth comes from a hard
+     black drop plus a faint teal lift, which is what keeps cards above the
+     background instead of dissolving into it. */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.6), 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 0 1px rgba(20, 224, 200, 0.22), 0 8px 32px rgba(20, 224, 200, 0.16);
+
+  --gradient-primary: linear-gradient(135deg, #14E0C8 0%, #12B5D8 55%, #6C7BFF 100%);
+  --gradient-secondary: linear-gradient(135deg, #14E0C8 0%, #22C55E 100%);
+  --gradient-accent: linear-gradient(135deg, #FFB020 0%, #FF5C7A 100%);
+  --gradient-gold: linear-gradient(135deg, #F6D174 0%, #E8B04B 60%, #B4801F 100%);
+
   --app-bg:
-    radial-gradient(circle at 10% 0%, rgba(14,143,131,0.10), transparent 28%),
-    radial-gradient(circle at 95% 8%, rgba(240,68,114,0.10), transparent 26%),
-    linear-gradient(180deg, #F7FAF9 0%, #FFF8F2 52%, #F7FAF9 100%);
-  --card-border: 1px solid rgba(14, 143, 131, 0.12);
+    radial-gradient(circle at 8% -4%, rgba(20, 224, 200, 0.14), transparent 34%),
+    radial-gradient(circle at 96% 4%, rgba(108, 123, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, #0A0E12 0%, #0D141A 55%, #0A0E12 100%);
+  --card-border: 1px solid rgba(127, 243, 230, 0.10);
 }
 
-
-:root[data-theme="dark"] {
-  --color-bg-dark: #071312;
-  --color-bg-card: #0D1C1A;
-  --color-bg-input: #102824;
-  --color-surface: #102522;
-  --color-surface-light: #173B36;
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #d7f3ef;
-  --color-text-muted: #94a3b8;
+/* The light variant, for anyone who sets data-theme="light". Kept so the
+   dark-first switch does not throw away a working palette, and so a toggle
+   added later has something to toggle to. */
+:root[data-theme="light"] {
+  --color-bg-dark: #F6F9FA;
+  --color-bg-card: #FFFFFF;
+  --color-bg-input: #EFF5F7;
+  --color-surface: #F1F6F8;
+  --color-surface-light: #E3EEF2;
+  --color-text-primary: #0C1418;
+  --color-text-secondary: #33474F;
+  --color-text-muted: #6C8290;
+  --color-primary: #0B9E8D;
+  --color-primary-light: #14E0C8;
+  --color-primary-dark: #07705F;
+  --shadow-card: 0 8px 28px rgba(12, 20, 24, 0.08);
+  --shadow-lg: 0 18px 48px rgba(12, 20, 24, 0.14);
+  --shadow-glow: 0 0 0 1px rgba(11, 158, 141, 0.18), 0 8px 28px rgba(11, 158, 141, 0.14);
   --app-bg:
-    radial-gradient(circle at 12% 0%, rgba(20,184,166,0.12), transparent 28%),
-    radial-gradient(circle at 95% 8%, rgba(240,68,114,0.12), transparent 26%),
-    linear-gradient(180deg, #071312 0%, #0D1C1A 56%, #071312 100%);
-  --card-border: 1px solid rgba(125, 211, 199, 0.16);
-  --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+    radial-gradient(circle at 10% 0%, rgba(11, 158, 141, 0.10), transparent 28%),
+    radial-gradient(circle at 95% 8%, rgba(108, 123, 255, 0.08), transparent 26%),
+    linear-gradient(180deg, #F6F9FA 0%, #FFFFFF 52%, #F6F9FA 100%);
+  --card-border: 1px solid rgba(11, 158, 141, 0.14);
 }
 
-:root[data-theme="dark"] .glass {
-  background: rgba(15, 31, 29, 0.9);
+:root[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.86);
 }
 /* ---- Theme utility classes ---- */
 @layer utilities {
@@ -220,10 +264,23 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+  Type is the strongest remaining tie to V1, which also sets Outfit. Manrope
+  carries body copy and Space Grotesk carries headings and numerals: Grotesk has
+  distinctive angled terminals and a squared bowl that read as nothing like
+  Outfit's soft geometric forms, so the two apps stop looking like one product
+  at a glance.
+*/
 html {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   color: var(--color-text-primary);
+}
+
+h1, h2, h3, h4, h5, h6,
+.font-display {
+  font-family: 'Space Grotesk', 'Manrope', -apple-system, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 body {
@@ -312,10 +369,44 @@ select:focus-visible {
   }
 }
 
+/*
+  Both class names are defined deliberately.
+
+  SkeletonCard and BlurImage have always used `.shimmer`, but the only rule
+  written here was `.skeleton-shimmer`, so neither component had any style at
+  all: every loading placeholder rendered as an invisible box, and the app
+  appeared to hang on slow connections rather than showing it was working.
+
+  The sweep for a nice loading state found no loading state.
+
+  Renaming the components' class would fix the two known callers and quietly
+  break any future one that guesses the shorter name, so both names carry the
+  rule.
+*/
+.shimmer,
 .skeleton-shimmer {
-  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-light) 50%, var(--color-surface) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 20%,
+    var(--color-surface-light) 42%,
+    /* A teal pass through the highlight. On a dark ground a grey-on-grey
+       sweep is nearly invisible, and this is what makes the state read as
+       loading rather than as an empty card. */
+    color-mix(in srgb, var(--color-primary) 22%, var(--color-surface-light)) 50%,
+    var(--color-surface-light) 58%,
+    var(--color-surface) 80%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Respect a reduced-motion preference: hold the mid-tone rather than sweeping. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .skeleton-shimmer {
+    animation: none;
+    background: var(--color-surface-light);
+  }
 }
 
 /* ---- Pulse glow ---- */

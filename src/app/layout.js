@@ -6,16 +6,32 @@ import NotificationManager from '@/components/NotificationManager';
 export const viewport = {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
+    /*
+      Pinch-zoom was blocked here with maximumScale: 1 and userScalable: false.
+      That fails WCAG 2.1 SC 1.4.4 and is a real problem on a dating app, where
+      people zoom into photos and read bios on small screens. The layout is
+      responsive and never relied on a locked viewport, so allowing zoom costs
+      nothing.
+    */
+    maximumScale: 5,
+    userScalable: true,
     viewportFit: 'cover',
-    themeColor: '#0E8F83',
+    // Matches --color-bg-dark, so the system chrome meets the app cleanly.
+    themeColor: '#0A0E12',
+    colorScheme: 'dark',
 };
 
+/*
+  The title and description here were byte-identical to V1's, on a different
+  domain. Two properties telling search engines they are the same thing is the
+  worst of both worlds: neither ranks, and whichever loses looks like a copy of
+  the other. This copy describes what this app actually is, the global one, in
+  its own words.
+*/
 export const metadata = {
-    title: 'Genuine Sugar Mummies - Find Your Perfect Match',
-    description: 'The #1 premium dating app for genuine sugar mummy connections. Swipe, match, and connect with verified profiles worldwide. Safe, secure, and real.',
-    keywords: ['sugar mummy', 'dating app', 'connections', 'match', 'verified profiles', 'genuine sugar mummies'],
+    title: 'GS Global | Meet Verified Sugar Mummies & Sugar Daddies',
+    description: 'Real profiles, verified by hand. Meet sugar mummies and sugar daddies near you, message safely, and go live. Free to join.',
+    keywords: ['sugar mummy', 'sugar daddy', 'verified dating', 'live video dating', 'gs global'],
     authors: [{ name: 'Genuine Sugar Mummies' }],
     creator: 'Genuine Sugar Mummies',
     metadataBase: new URL('https://genuinesugarmummies.com'),
@@ -23,8 +39,8 @@ export const metadata = {
         canonical: '/',
     },
     openGraph: {
-        title: 'Genuine Sugar Mummies - Find Your Perfect Match',
-        description: 'The premium dating app for genuine sugar mummy connections. Swipe, match, and connect with verified profiles.',
+        title: 'GS Global | Meet Verified Sugar Mummies & Sugar Daddies',
+        description: 'Real profiles, verified by hand. Message safely, go live, and meet people near you.',
         url: 'https://genuinesugarmummies.com',
         siteName: 'Genuine Sugar Mummies',
         locale: 'en_US',
@@ -32,8 +48,8 @@ export const metadata = {
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'Genuine Sugar Mummies',
-        description: 'Premium dating app for genuine connections',
+        title: 'GS Global',
+        description: 'Verified sugar mummy and sugar daddy dating',
     },
     manifest: '/manifest.json',
     icons: {
@@ -42,8 +58,8 @@ export const metadata = {
     },
     appleWebApp: {
         capable: true,
-        statusBarStyle: 'default',
-        title: 'GS Mummies',
+        statusBarStyle: 'black-translucent',
+        title: 'GS Global',
     },
 };
 
@@ -53,8 +69,16 @@ export default function RootLayout({ children }) {
             <head>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                {/*
+                  Manrope for body, Space Grotesk for headings and numerals.
+                  Outfit was here, and V1 also sets Outfit, which was most of why
+                  the two apps read as one product.
+
+                  Only the weights actually used are requested. The previous link
+                  pulled seven Outfit weights, of which the app used three.
+                */}
                 <link
-                    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+                    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
                     rel="stylesheet"
                 />
                 <meta name="apple-mobile-web-app-capable" content="yes" />

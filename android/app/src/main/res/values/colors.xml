@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  There was no colors.xml here at all. styles.xml referenced @color/colorPrimary
+  and @color/colorPrimaryDark, and those resolved to Capacitor's library
+  defaults, so the status bar and system chrome were whatever the framework
+  happened to ship rather than anything to do with this app.
+
+  These match the web theme: --color-bg-dark for the chrome and --color-primary
+  for accents, so the native frame and the WebView inside it are the same app.
+-->
+<resources>
+    <color name="colorPrimary">#0A0E12</color>
+    <color name="colorPrimaryDark">#070A0D</color>
+    <color name="colorAccent">#14E0C8</color>
+    <!-- Behind the WebView, so a slow first paint shows the app's own ground
+         rather than a white flash. -->
+    <color name="background">#0A0E12</color>
+</resources>
