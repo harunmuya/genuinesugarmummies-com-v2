@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { PhoneCall, PhoneOff, Video } from 'lucide-react';
-import { createBrowserSupabaseClient, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { startPolling, POLL } from '@/lib/poll';
 import { useAuth } from '@/contexts/AuthContext';
 import UserAvatar from '@/components/UserAvatar';
@@ -41,54 +40,28 @@ export default function IncomingCallManager() {
 
         /*
           This component is mounted from (main)/layout.js, so it runs on every
-          signed-in page. It polled /api/calls every 3 seconds — 1200 requests
-          an hour, per tab, in the foreground and the background alike — while
-          already holding a realtime subscription on call_sessions filtered to
-          this user. The socket delivers a ringing call the instant the row is
-          written. The poll was paying, over and over, for news it had already
-          been told.
+          signed-in page, and it polled /api/calls every 3 seconds: 1200
+          requests an hour per tab, foreground and background alike. That was a
+          large part of the egress overage that got this project restricted.
 
-          It cannot simply be deleted, because a dropped or blocked socket would
-          then mean a call that never rings. So the poll becomes what it should
-          always have been: a fallback whose rate depends on whether realtime is
-          actually working. Subscribed, it ticks slowly as a safety net. If the
-          channel errors, times out or closes, it drops to a short interval and
-          covers for it until the socket recovers.
+          There was also a realtime subscription on call_sessions here, and it
+          was removed rather than relied on.
+
+          It did deliver, but only because call_sessions carried
+          FOR ALL USING (true) WITH CHECK (true) with no TO clause. Despite
+          being named "Service role manages call sessions", a policy with no TO
+          clause applies to every role, so anyone with the anon key out of the
+          JavaScript bundle could read, alter and delete every member's call
+          rows. With no Supabase Auth session in this app there is no auth.uid()
+          to scope a policy by, so the table cannot be both subscribable and
+          private. It is now private, and the subscription cannot work.
+
+          So the poll is the delivery path, at 8 seconds rather than 3. A caller
+          waits at most that long, and the visibility gate means a backgrounded
+          app costs nothing.
         */
-        let channel = null;
-        let stopPolling = startPolling(loadCalls, POLL.INCOMING_CALLS);
-
-        const repoll = (intervalMs) => {
-            stopPolling();
-            stopPolling = startPolling(loadCalls, intervalMs);
-        };
-
-        try {
-            if (isSupabaseConfigured()) {
-                const supabase = createBrowserSupabaseClient();
-                channel = supabase
-                    .channel(`gs-incoming-calls-${user.id}`)
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'call_sessions', filter: `receiver_id=eq.${user.id}` }, loadCalls)
-                    .subscribe((status) => {
-                        // A ringing call the user never sees is worse than the
-                        // requests, so degrade loudly rather than silently.
-                        if (status === 'SUBSCRIBED') repoll(POLL.INCOMING_CALLS);
-                        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-                            repoll(POLL.CALLS_FALLBACK);
-                        }
-                    });
-            } else {
-                // No realtime at all, so the poll is the only delivery path.
-                repoll(POLL.CALLS_FALLBACK);
-            }
-        } catch {
-            repoll(POLL.CALLS_FALLBACK);
-        }
-
-        return () => {
-            stopPolling();
-            try { if (channel) createBrowserSupabaseClient().removeChannel(channel); } catch {}
-        };
+        const stopPolling = startPolling(loadCalls, POLL.INCOMING_CALLS);
+        return () => stopPolling();
     }, [user?.id]);
 
     async function setCallStatus(status) {

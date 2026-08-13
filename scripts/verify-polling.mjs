@@ -91,25 +91,36 @@ console.log('\nIntervals are named, not scattered as literals');
     check('POLL table is populated', named.length >= 6, `${named.length} entries`);
 
     /*
-      The 3 second call poll is the one that must never come back. It ran on
-      every signed-in page beside a realtime subscription on the same table,
-      so it was paying 1200 requests an hour for news the socket had already
-      delivered.
+      The incoming-call poll has to stay in a narrow band, and this check has
+      been wrong in both directions already.
+
+      At 3 seconds it cost 1200 requests an hour on every signed-in page. It
+      was then set to 30 on the reading that the call_sessions realtime
+      subscription delivered the ring and the poll was only a safety net.
+
+      That reading was wrong. The subscription worked only because
+      call_sessions carried FOR ALL USING (true) with no TO clause — a policy
+      named for the service role that in fact applied to anon, leaving every
+      member's call rows readable and writable with the public key. Closing
+      that closes the subscription, so the poll rings the phone.
+
+      Hence a floor and a ceiling: fast enough that a caller is not left
+      waiting, slow enough that it is not the old 3 second bill.
     */
     const incoming = named.find(([k]) => k === 'INCOMING_CALLS');
-    check('the incoming-call poll is a safety net, not the delivery path',
-        incoming && incoming[1] >= 20_000,
-        incoming ? `${incoming[1] / 1000}s behind the realtime subscription` : 'INCOMING_CALLS missing');
+    check('the incoming-call poll rings the phone without billing like the old one',
+        incoming && incoming[1] >= 5_000 && incoming[1] <= 12_000,
+        incoming ? `${incoming[1] / 1000}s` : 'INCOMING_CALLS missing');
 
     /*
-      But it is allowed to be fast when realtime is genuinely unavailable. A
-      call that never rings is worse than the requests, and collapsing this
-      into one slow number would trade the egress problem for a broken feature.
+      The chat thread is in the same position: its `messages` subscription is
+      filtered by auth.uid(), and this app has no Supabase Auth session, so it
+      has never delivered a row. The poll is the delivery path there too.
     */
-    const fallback = named.find(([k]) => k === 'CALLS_FALLBACK');
-    check('and there is a fast fallback for when the socket is down',
-        fallback && fallback[1] <= 10_000,
-        fallback ? `${fallback[1] / 1000}s` : 'CALLS_FALLBACK missing');
+    const thread = named.find(([k]) => k === 'THREAD');
+    check('the chat thread poll is quick, since its subscription cannot deliver',
+        thread && thread[1] <= 12_000,
+        thread ? `${thread[1] / 1000}s` : 'THREAD missing');
 
     const account = named.find(([k]) => k === 'ACCOUNT');
     check('the account refresh is no longer every 10 seconds',
@@ -117,15 +128,26 @@ console.log('\nIntervals are named, not scattered as literals');
         account ? `${account[1] / 1000}s, and it fans out into six requests` : 'ACCOUNT missing');
 }
 
-console.log('\nPolls that duplicate a realtime subscription stay slow');
+console.log('\nNo subscription to a table the public key can no longer read');
 {
+    /*
+      call_sessions is closed to anon by
+      supabase/migrations/20260813_020_lock_down_public_table_access.sql, so a
+      subscription to it would sit there reporting SUBSCRIBED and never fire.
+      A dead listener beside a working poll is worse than no listener: it is
+      the thing that made the poll look redundant in the first place.
+    */
     const manager = readFileSync(join('src', 'components', 'IncomingCallManager.js'), 'utf8');
-    check('IncomingCallManager still subscribes to call_sessions',
-        /postgres_changes[\s\S]*call_sessions/.test(manager),
-        'the socket is the delivery path; the poll only covers for it');
-    check('and reacts to the subscription failing',
-        /CHANNEL_ERROR|TIMED_OUT/.test(manager),
-        'otherwise a dead socket means a call that never rings');
+    check('IncomingCallManager does not subscribe to call_sessions',
+        !/postgres_changes/.test(manager),
+        'the table is private now, so the socket cannot deliver');
+
+    const migration = readFileSync(
+        join('supabase', 'migrations', '20260813_020_lock_down_public_table_access.sql'), 'utf8');
+    check('and the migration that closed it is present',
+        /password_reset_codes/.test(migration) && /revoke all on public/.test(migration));
+    check('live stream content stays readable, since it is public by nature',
+        /live_comments/.test(migration) && /grant select on public/.test(migration));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

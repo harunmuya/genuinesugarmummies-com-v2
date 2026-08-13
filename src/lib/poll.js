@@ -110,20 +110,43 @@ export function startPolling(fn, intervalMs, { runNow = true } = {}) {
 export const POLL = {
     /** Account state: admin approvals and package unlocks reaching the device. */
     ACCOUNT: 60_000,
-    /** Safety net behind the call_sessions realtime subscription. */
-    INCOMING_CALLS: 30_000,
     /**
-     * Used only when that subscription is not working — errored, timed out,
-     * closed, or Supabase not configured at all. A missed incoming call is
-     * worth more than the requests, so this stays short.
+     * Incoming calls. This is the delivery path, not a safety net.
+     *
+     * It was briefly set to 30s on the understanding that the call_sessions
+     * realtime subscription delivered the ring and the poll only covered for a
+     * dropped socket. Reading the RLS policies showed that was the wrong way
+     * round, twice over:
+     *
+     * The subscription did work, but only because call_sessions carried a
+     * policy of FOR ALL USING (true) with no TO clause, which despite being
+     * named "Service role manages call sessions" applied to anon as well. Every
+     * member's call metadata was readable, and writable, with the public key
+     * out of the JavaScript bundle. That is closed now, which also closes the
+     * subscription.
+     *
+     * So the poll rings the phone. Eight seconds is the compromise: a caller
+     * waits at most that long, against 3s before, and the visibility gate means
+     * a backgrounded app costs nothing either way.
      */
-    CALLS_FALLBACK: 5_000,
+    INCOMING_CALLS: 8_000,
     /** Inside an active call, where latency is actually felt. */
     ACTIVE_CALL: 10_000,
     /** Conversation list. */
     MESSAGES: 20_000,
-    /** Open thread, which also has a realtime subscription. */
-    THREAD: 15_000,
+    /**
+     * Open chat thread.
+     *
+     * There is a realtime subscription on `messages` beside this poll, and it
+     * has never delivered anything. Its policy reads
+     * `auth.uid() IN (sender_id, receiver_id)`, and this app does not use
+     * Supabase Auth — it verifies passwords against its own users table — so
+     * auth.uid() is null for every visitor and the filter matches no rows.
+     *
+     * The poll has always been what actually moved messages, which is why it
+     * was set to 5 seconds. It stays the delivery path, at 8.
+     */
+    THREAD: 8_000,
     /** Live streams, on the discover and live screens. */
     LIVE: 45_000,
     /** Decorative strips. Nothing breaks if these are a minute stale. */
