@@ -359,7 +359,7 @@ export default function LoginPage() {
                 )}
 
                 <div className="mt-6 space-y-3 text-center">
-                    <div className="grid grid-cols-3 gap-2 text-[10px] font-black">
+                    <div className="grid grid-cols-3 gap-2 text-[11px] font-black">
                         <span className="rounded-full bg-success/10 px-2 py-1 text-success">18+ only</span>
                         <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">Manual verification</span>
                         <span className="rounded-full bg-danger/10 px-2 py-1 text-danger">Report abuse</span>

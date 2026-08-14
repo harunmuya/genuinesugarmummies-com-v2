@@ -129,7 +129,7 @@ export default function WalletPage() {
                             <div className="flex items-center justify-between gap-2">
                                 <div>
                                     <p className="text-sm font-black text-text-primary">{gift.name}</p>
-                                    <p className="text-[10px] text-text-muted">{gift.category} gift · Owned {inventoryByGift.get(gift.id)?.quantity || 0}</p>
+                                    <p className="text-[11px] text-text-muted">{gift.category} gift · Owned {inventoryByGift.get(gift.id)?.quantity || 0}</p>
                                 </div>
                                 <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-black text-primary">{gift.credit_cost} credits</span>
                             </div>
@@ -152,8 +152,8 @@ export default function WalletPage() {
                             return (
                                 <div key={item.id} className="rounded-2xl p-2 text-center" style={{ background: 'var(--color-surface)' }}>
                                     <GiftVisual gift={gift} className="mx-auto mb-1 h-16 w-full rounded-xl" />
-                                    <p className="truncate text-[10px] font-black text-text-primary">{gift.name || 'Gift'}</p>
-                                    <p className="text-[10px] font-black text-primary">x{item.quantity}</p>
+                                    <p className="truncate text-[11px] font-black text-text-primary">{gift.name || 'Gift'}</p>
+                                    <p className="text-[11px] font-black text-primary">x{item.quantity}</p>
                                 </div>
                             );
                         })}
@@ -189,7 +189,7 @@ export default function WalletPage() {
                                     <span className={`text-xs font-black ${tx.status === 'posted' ? 'text-success' : 'text-gold'}`}>{tx.status}</span>
                                 </div>
                                 <p className="text-xs text-text-secondary">Amount: {tx.amount} · Ref: {tx.reference || 'N/A'}</p>
-                                <p className="text-[10px] text-text-muted">{dateText(tx.created_at)}</p>
+                                <p className="text-[11px] text-text-muted">{dateText(tx.created_at)}</p>
                             </div>
                         ))}
                     </div>
@@ -200,5 +200,5 @@ export default function WalletPage() {
 }
 
 function BalanceCard({ icon: Icon, label, value }) {
-    return <div className="rounded-2xl p-3 min-h-[92px] flex flex-col justify-between" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}><Icon size={18} className="text-primary" /><div><p className="text-[10px] text-text-muted">{label}</p><p className="text-lg font-black text-text-primary">{value}</p></div></div>;
+    return <div className="rounded-2xl p-3 min-h-[92px] flex flex-col justify-between" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}><Icon size={18} className="text-primary" /><div><p className="text-[11px] text-text-muted">{label}</p><p className="text-lg font-black text-text-primary">{value}</p></div></div>;
 }

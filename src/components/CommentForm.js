@@ -140,7 +140,7 @@ export default function CommentForm({ profile, onClose }) {
                                     <span className="text-xs text-danger font-medium">{error}</span>
                                 )}
                             </div>
-                            <p className="text-[10px] text-text-muted leading-relaxed flex items-start gap-1.5">
+                            <p className="text-[11px] text-text-muted leading-relaxed flex items-start gap-1.5">
                                 <AlertTriangle size={12} className="text-gold shrink-0 mt-0.5" />
                                 Comments are sent to genuinesugarmummies.com for moderation. An admin will review and approve your comment before it appears publicly.
                             </p>

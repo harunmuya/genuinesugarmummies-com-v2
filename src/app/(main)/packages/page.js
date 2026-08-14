@@ -398,14 +398,14 @@ function TierCard({ tier, active, selected, onSelect }) {
     return (
         <article className="overflow-hidden rounded-[28px] transition-all" style={{ background: 'var(--color-bg-card)', border: tone.border, boxShadow: active ? tone.glow : 'var(--shadow-card)' }}>
             <button onClick={onSelect} className="relative w-full p-4 text-left transition-all active:scale-[0.99]">
-                {tier.recommended && <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] font-black text-white gradient-primary"><Star size={11} fill="currentColor" /> Best Value</span>}
+                {tier.recommended && <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black text-white gradient-primary"><Star size={11} fill="currentColor" /> Best Value</span>}
                 <div className="flex items-start gap-3 pr-24">
                     <div className={`h-13 w-13 rounded-2xl flex items-center justify-center ${tone.icon}`}><Icon size={24} /></div>
                     <div className="min-w-0">
-                        <p className={`mb-1 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${tone.pill}`}>{tier.label}</p>
+                        <p className={`mb-1 inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ${tone.pill}`}>{tier.label}</p>
                         <h2 className="text-2xl font-black text-text-primary">{tier.name}</h2>
                         <p className="text-lg font-black text-primary">KSh {tier.price.toLocaleString()}</p>
-                        <p className="text-[10px] font-black uppercase text-text-muted">One-Time Payment</p>
+                        <p className="text-[11px] font-black uppercase text-text-muted">One-Time Payment</p>
                         <p className="mt-1 text-xs font-bold text-text-muted">{tier.bestFor}</p>
                     </div>
                 </div>
@@ -416,7 +416,7 @@ function TierCard({ tier, active, selected, onSelect }) {
                             <div key={item.title} className="rounded-2xl p-2 text-center" style={{ background: 'var(--color-surface)' }}>
                                 <FeatureIcon size={17} className={`mx-auto mb-1 ${tier.color === 'gold' ? 'text-gold' : tier.color === 'secondary' ? 'text-secondary' : 'text-primary'}`} />
                                 <p className="text-[11px] font-black text-text-primary">{item.title}</p>
-                                <p className="text-[9px] font-bold text-text-muted">{item.caption}</p>
+                                <p className="text-[11px] font-bold text-text-muted">{item.caption}</p>
                             </div>
                         );
                     })}
@@ -434,7 +434,7 @@ function TierCard({ tier, active, selected, onSelect }) {
                         <ol className="space-y-1.5">
                             {selected.services.map((service, index) => (
                                 <li key={service} className="flex gap-2.5 rounded-xl bg-white/70 p-2">
-                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">{index + 1}</span>
+                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-black text-white">{index + 1}</span>
                                     <span className="text-[13px] font-bold leading-snug text-text-secondary">{service}</span>
                                 </li>
                             ))}

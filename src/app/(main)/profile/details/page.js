@@ -261,7 +261,7 @@ export default function ProfilePage() {
                     ].map(s => (
                         <div key={s.label} className="text-center rounded-xl p-2" style={{ background: 'var(--color-surface)' }}>
                             <p className="text-lg font-black text-primary">{s.value}</p>
-                            <p className="text-[10px] text-text-muted font-medium">{s.label}</p>
+                            <p className="text-[11px] text-text-muted font-medium">{s.label}</p>
                         </div>
                     ))}
                 </div>
@@ -287,7 +287,7 @@ export default function ProfilePage() {
                             <h3 className="text-sm font-black text-text-primary">Account Center</h3>
                             <p className="text-xs text-text-muted">Manage your profile, membership, privacy, messages, saves, support, and verification.</p>
                         </div>
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black text-primary bg-primary/10">{packageLabel}</span>
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-black text-primary bg-primary/10">{packageLabel}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                         {[
@@ -310,9 +310,9 @@ export default function ProfilePage() {
                                 <>
                                     <span className="relative mx-auto w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                                         <Icon size={18} />
-                                        {item.count > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-secondary text-white text-[9px] leading-4 px-1">{item.count > 99 ? '99+' : item.count}</span>}
+                                        {item.count > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-secondary text-white text-[11px] leading-4 px-1">{item.count > 99 ? '99+' : item.count}</span>}
                                     </span>
-                                    <span className="text-[10px] font-black text-text-secondary">{item.label}</span>
+                                    <span className="text-[11px] font-black text-text-secondary">{item.label}</span>
                                 </>
                             );
                             if (item.action) return <button key={item.label} type="button" onClick={item.action} className="rounded-2xl p-2 space-y-1.5 text-center" style={{ background: 'var(--color-surface)' }}>{content}</button>;
@@ -344,9 +344,9 @@ export default function ProfilePage() {
                 <div id="photos" className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5"><PackageCheck size={16} className="text-primary" /> Package Access</h3>
                     <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-xl p-3 bg-primary/10"><p className="text-[10px] text-text-muted">Tier</p><p className="text-sm font-black text-primary">{currentTier.toUpperCase()}</p></div>
-                        <div className="rounded-xl p-3 bg-secondary/10"><p className="text-[10px] text-text-muted">Basic</p><p className="text-sm font-black text-secondary">{canUseBasic ? 'ON' : 'OFF'}</p></div>
-                        <div className="rounded-xl p-3 bg-amber-100"><p className="text-[10px] text-text-muted">Numbers</p><p className="text-sm font-black text-gold">{canRevealPhone ? 'ON' : 'LOCKED'}</p></div>
+                        <div className="rounded-xl p-3 bg-primary/10"><p className="text-[11px] text-text-muted">Tier</p><p className="text-sm font-black text-primary">{currentTier.toUpperCase()}</p></div>
+                        <div className="rounded-xl p-3 bg-secondary/10"><p className="text-[11px] text-text-muted">Basic</p><p className="text-sm font-black text-secondary">{canUseBasic ? 'ON' : 'OFF'}</p></div>
+                        <div className="rounded-xl p-3 bg-amber-100"><p className="text-[11px] text-text-muted">Numbers</p><p className="text-sm font-black text-gold">{canRevealPhone ? 'ON' : 'LOCKED'}</p></div>
                     </div>
                     <Link href="/packages" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-white gradient-primary"><Gem size={16} /> Manage Packages</Link>
                 </div>
@@ -369,7 +369,7 @@ export default function ProfilePage() {
                                     <X size={14} className="text-white" />
                                 </button>
                                 {i === 0 && (
-                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-primary/80 text-[8px] font-bold text-white">
+                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-primary/80 text-[11px] font-bold text-white">
                                         MAIN
                                     </span>
                                 )}
@@ -382,7 +382,7 @@ export default function ProfilePage() {
                                 style={{ background: 'var(--color-surface)', border: '2px dashed rgba(124,58,237,0.2)' }}
                             >
                                 <Plus size={20} className="text-primary" />
-                                <span className="text-[10px] text-text-muted font-medium">Add</span>
+                                <span className="text-[11px] text-text-muted font-medium">Add</span>
                             </button>
                         )}
                     </div>
@@ -488,7 +488,7 @@ export default function ProfilePage() {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-text-primary truncate">{msg.title}</p>
-                                <p className="text-[10px] text-text-muted line-clamp-2 mt-0.5">{msg.body}</p>
+                                <p className="text-[11px] text-text-muted line-clamp-2 mt-0.5">{msg.body}</p>
                             </div>
                         </div>
                     ))}
@@ -511,7 +511,7 @@ export default function ProfilePage() {
                                     <div className="aspect-square rounded-xl overflow-hidden bg-primary/10">
                                         {item.imageUrl || item.avatarUrl ? <img src={item.imageUrl || item.avatarUrl} alt="" className="w-full h-full object-cover" /> : <UserAvatar name={item.name || 'Saved'} size={52} />}
                                     </div>
-                                    <p className="text-[10px] font-bold text-text-secondary truncate">{item.name || 'Saved'}</p>
+                                    <p className="text-[11px] font-bold text-text-secondary truncate">{item.name || 'Saved'}</p>
                                 </Link>
                             ))}
                         </div>
@@ -545,10 +545,10 @@ export default function ProfilePage() {
                             <div className="flex items-center gap-2">
                                 <div>
                                     <span className="text-sm font-bold text-text-primary block">{setting.label}</span>
-                                    <span className="text-[10px] text-text-muted block">{setting.desc}</span>
+                                    <span className="text-[11px] text-text-muted block">{setting.desc}</span>
                                 </div>
                                 {setting.key === 'liveLocation' && settings.liveLocation && liveLocationData?.city && (
-                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-success/10 text-success">
                                         <MapPin size={10} /> {liveLocationData.city}
                                     </span>
                                 )}
@@ -726,7 +726,7 @@ function StatusTile({ icon: Icon, label, value, tone = 'primary' }) {
                 <Icon size={17} />
             </div>
             <div>
-                <p className="text-[10px] font-bold text-text-muted">{label}</p>
+                <p className="text-[11px] font-bold text-text-muted">{label}</p>
                 <p className="text-xs font-black text-text-primary leading-tight">{value}</p>
             </div>
         </div>

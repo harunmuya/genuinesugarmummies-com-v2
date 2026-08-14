@@ -83,7 +83,7 @@ export default function MessagesPage() {
                     <p className="text-sm font-black text-text-primary">GS App Community</p>
                     <p className="text-xs text-text-muted truncate">Official updates, user instructions, safety tips, boosts, stories, and package guidance.</p>
                 </div>
-                <span className="rounded-full bg-secondary/10 px-2 py-1 text-[10px] font-black text-secondary inline-flex items-center gap-1"><Rocket size={11} /> New</span>
+                <span className="rounded-full bg-secondary/10 px-2 py-1 text-[11px] font-black text-secondary inline-flex items-center gap-1"><Rocket size={11} /> New</span>
             </Link>
 
             <label className="relative block">
@@ -112,7 +112,7 @@ export default function MessagesPage() {
                                 <div className="relative shrink-0">
                                     <UserAvatar name={peer.display_name || 'Member'} src={photo} size={52} />
                                     <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-2 ring-white ${onlineTone(peer)}`} />
-                                    {item.unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-secondary text-white text-[10px] font-black flex items-center justify-center px-1">{item.unreadCount > 99 ? '99+' : item.unreadCount}</span>}
+                                    {item.unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-secondary text-white text-[11px] font-black flex items-center justify-center px-1">{item.unreadCount > 99 ? '99+' : item.unreadCount}</span>}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1">
@@ -121,7 +121,7 @@ export default function MessagesPage() {
                                     </div>
                                     <p className="text-xs text-text-secondary truncate">{latest?.body || 'Conversation opened'}</p>
                                 </div>
-                                <span className="text-[10px] font-bold text-text-muted">{timeText(latest?.created_at || item.updated_at)}</span>
+                                <span className="text-[11px] font-bold text-text-muted">{timeText(latest?.created_at || item.updated_at)}</span>
                             </Link>
                         );
                     })}

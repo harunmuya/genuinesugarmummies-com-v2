@@ -121,7 +121,7 @@ export default function AlertsPage() {
                     </div>
                     <div className="min-w-0">
                         <p className="text-sm font-black text-text-primary truncate">{selected.sender || selected.type}</p>
-                        <p className="text-[10px] text-text-muted">{fullTime(selected.timestamp)}</p>
+                        <p className="text-[11px] text-text-muted">{fullTime(selected.timestamp)}</p>
                     </div>
                 </header>
 
@@ -130,7 +130,7 @@ export default function AlertsPage() {
                         <p className="text-xs font-black text-primary mb-1">{selected.title}</p>
                         <p className="text-sm leading-relaxed text-text-secondary whitespace-pre-wrap">{selected.body || 'No message body.'}</p>
                     </div>
-                    <p className="text-center text-[10px] text-text-muted">Saved in your GS account inbox</p>
+                    <p className="text-center text-[11px] text-text-muted">Saved in your GS account inbox</p>
                 </section>
 
                 {selected.memberId && <button onClick={() => openTarget(selected)} className="w-full rounded-2xl py-3 font-black text-white gradient-primary flex items-center justify-center gap-2"><ExternalLink size={16} /> {selected.conversationId ? 'Open Chat' : 'Open Profile'}</button>}
@@ -179,7 +179,7 @@ export default function AlertsPage() {
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-black text-text-primary truncate">{item.title}</p>
                                         {item.body && <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">{item.body}</p>}
-                                        <p className="text-[10px] text-text-muted mt-1">{timeAgo(item.timestamp)}</p>
+                                        <p className="text-[11px] text-text-muted mt-1">{timeAgo(item.timestamp)}</p>
                                     </div>
                                     {!item.read && <span className="w-2.5 h-2.5 rounded-full bg-secondary mt-2" />}
                                 </motion.button>

@@ -39,13 +39,13 @@ export default function BottomNav() {
                             <div className="relative">
                                 <Icon size={23} strokeWidth={isActive ? 2.5 : 1.7} className={`transition-colors duration-300 ${isActive ? 'text-primary' : 'text-text-secondary'}`} />
                                 {showBadge && (
-                                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1" style={{ background: '#EC4899' }}>
+                                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[11px] font-bold text-white px-1" style={{ background: '#EC4899' }}>
                                         {totalUnread > 99 ? '99+' : totalUnread}
                                     </span>
                                 )}
                                 {isActive && <motion.div layoutId="navIndicator" className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full gradient-primary" transition={{ type: 'spring', stiffness: 500, damping: 30 }} />}
                             </div>
-                            <span className={`text-[10px] font-semibold transition-colors duration-300 ${isActive ? 'text-primary' : 'text-text-secondary'}`}>{item.label}</span>
+                            <span className={`text-[11px] font-semibold transition-colors duration-300 ${isActive ? 'text-primary' : 'text-text-secondary'}`}>{item.label}</span>
                         </Link>
                     );
                 })}

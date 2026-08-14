@@ -70,7 +70,7 @@ export default function CommunityPage() {
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-black text-text-primary">{item.title}</p>
                                 <p className="mt-1 text-xs leading-relaxed text-text-muted">{item.body}</p>
-                                <span className="mt-2 inline-flex rounded-full bg-secondary/10 px-2.5 py-1 text-[10px] font-black text-secondary">{item.label}</span>
+                                <span className="mt-2 inline-flex rounded-full bg-secondary/10 px-2.5 py-1 text-[11px] font-black text-secondary">{item.label}</span>
                             </div>
                         </Link>
                     );

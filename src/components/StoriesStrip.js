@@ -125,9 +125,9 @@ export default function StoriesStrip({ title = 'Stories' }) {
                                 <div className="h-full w-full overflow-hidden rounded-full bg-surface">
                                     {storyPhoto(story) ? <img src={storyPhoto(story)} alt="" className="h-full w-full object-cover" /> : <UserAvatar name={story.user?.display_name || 'Story'} size={62} />}
                                 </div>
-                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-1.5 py-0.5 text-[8px] font-black text-white">{timeLeft(story.expires_at)}</span>
+                                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-1.5 py-0.5 text-[11px] font-black text-white">{timeLeft(story.expires_at)}</span>
                             </div>
-                            <p className="truncate text-[10px] font-black text-text-secondary">{story.user_id === user?.id ? 'Your story' : story.user?.display_name || 'Member'}</p>
+                            <p className="truncate text-[11px] font-black text-text-secondary">{story.user_id === user?.id ? 'Your story' : story.user?.display_name || 'Member'}</p>
                         </button>
                     ))}
                 </div>
@@ -142,7 +142,7 @@ export default function StoriesStrip({ title = 'Stories' }) {
                                 <UserAvatar name={activeStory.user?.display_name || 'Member'} src={storyPhoto(activeStory)} size={38} />
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-black">{activeStory.user?.display_name || 'Member'}</p>
-                                    <p className="text-[10px] text-white/60">{timeLeft(activeStory.expires_at)} left</p>
+                                    <p className="text-[11px] text-white/60">{timeLeft(activeStory.expires_at)} left</p>
                                 </div>
                             </div>
                             <div className="flex-1 flex items-center justify-center bg-black">

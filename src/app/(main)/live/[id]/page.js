@@ -280,7 +280,7 @@ export default function WatchLivePage({ params }) {
 
                 <main className="relative z-10 flex min-h-[calc(100dvh-160px)] flex-col justify-end p-4">
                     {status && <p className="mb-3 rounded-2xl bg-white/15 p-3 text-xs font-bold">{status}</p>}
-                    <div className="mb-3 grid grid-cols-5 gap-2 text-center text-[10px] font-black">
+                    <div className="mb-3 grid grid-cols-5 gap-2 text-center text-[11px] font-black">
                         {[
                             [Clock, formatDuration(seconds), 'time'],
                             [Eye, stream?.total_views || 0, 'views'],
@@ -304,7 +304,7 @@ export default function WatchLivePage({ params }) {
                             <Link href="/wallet" className="text-xs font-black text-primary inline-flex items-center gap-1"><Wallet size={12} /> Credits</Link>
                         </div>
                         <div className="grid max-h-60 grid-cols-3 gap-2 overflow-auto">
-                            {giftCatalog.length === 0 ? <p className="col-span-3 rounded-2xl bg-gray-50 p-3 text-xs font-bold text-text-muted">No active gifts yet. Add credits or ask admin to activate gifts.</p> : giftCatalog.map((gift) => <button key={gift.id} onClick={() => sendGift(gift)} className="rounded-2xl bg-gray-50 p-2 text-center"><GiftVisual gift={gift} className="mb-1 h-16 w-full rounded-xl" /><span className="block truncate text-[10px] font-black">{gift.name}</span><span className="text-[9px] font-black text-primary">{gift.credit_cost} cr</span></button>)}
+                            {giftCatalog.length === 0 ? <p className="col-span-3 rounded-2xl bg-gray-50 p-3 text-xs font-bold text-text-muted">No active gifts yet. Add credits or ask admin to activate gifts.</p> : giftCatalog.map((gift) => <button key={gift.id} onClick={() => sendGift(gift)} className="rounded-2xl bg-gray-50 p-2 text-center"><GiftVisual gift={gift} className="mb-1 h-16 w-full rounded-xl" /><span className="block truncate text-[11px] font-black">{gift.name}</span><span className="text-[11px] font-black text-primary">{gift.credit_cost} cr</span></button>)}
                         </div>
                     </div>}
                     <form onSubmit={sendComment} className="flex items-center gap-2">

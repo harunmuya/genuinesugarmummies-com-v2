@@ -148,7 +148,7 @@ export default function VoiceRecorder({ disabled = false, onRecorded, onError })
                             <span key={index} className="w-1 rounded-full bg-sky-500/70 animate-pulse" style={{ height: `${8 + ((index * 7) % 22)}px`, animationDelay: `${index * 0.04}s` }} />
                         ))}
                     </div>
-                    <p className="mt-2 text-[10px] font-bold text-text-muted">Release to attach. Tap X to cancel.</p>
+                    <p className="mt-2 text-[11px] font-bold text-text-muted">Release to attach. Tap X to cancel.</p>
                 </div>
             )}
         </div>

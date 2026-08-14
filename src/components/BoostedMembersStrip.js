@@ -59,13 +59,13 @@ export default function BoostedMembersStrip({ title = 'Boosted Members', limit =
                     <Link key={member.id} href={memberPath(member)} className="min-w-32 space-y-1 rounded-2xl p-2" style={{ background: 'var(--color-surface)' }}>
                         <div className="relative h-28 overflow-hidden rounded-xl bg-primary/10">
                             {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" onError={(event) => useFallbackAvatar(event, member.name)} /> : <UserAvatar name={member.name} size={58} />}
-                            <span className="absolute left-2 top-2 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-black text-white">BOOST</span>
+                            <span className="absolute left-2 top-2 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-black text-white">BOOST</span>
                         </div>
                         <div className="flex min-w-0 items-center gap-1">
                             <p className="truncate text-xs font-black text-text-primary">{member.name}</p>
                             <VerifiedBadge verified={member.verified} size={12} />
                         </div>
-                        <p className="truncate text-[10px] text-text-muted">{member.location || member.lookingFor || 'Featured now'}</p>
+                        <p className="truncate text-[11px] text-text-muted">{member.location || member.lookingFor || 'Featured now'}</p>
                     </Link>
                 ))}
             </div>

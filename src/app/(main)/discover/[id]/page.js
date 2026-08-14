@@ -242,17 +242,17 @@ export default function ProfileDetailPage({ params }) {
                 <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-xl p-3 text-center" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                         <Calendar size={16} className="mx-auto text-primary mb-1" />
-                        <p className="text-[10px] text-text-muted">Posted</p>
+                        <p className="text-[11px] text-text-muted">Posted</p>
                         <p className="text-xs font-bold text-text-primary">{profile.date ? timeAgo(profile.date) : 'N/A'}</p>
                     </div>
                     <div className="rounded-xl p-3 text-center" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                         <MessageCircle size={16} className="mx-auto text-secondary mb-1" />
-                        <p className="text-[10px] text-text-muted">Comments</p>
+                        <p className="text-[11px] text-text-muted">Comments</p>
                         <p className="text-xs font-bold text-text-primary">{comments.length || profile.commentCount || 0}</p>
                     </div>
                     <div className="rounded-xl p-3 text-center" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                         <Heart size={16} className="mx-auto text-pink-500 mb-1" />
-                        <p className="text-[10px] text-text-muted">Likes</p>
+                        <p className="text-[11px] text-text-muted">Likes</p>
                         <p className="text-xs font-bold text-text-primary">{liked ? 1 : 0}</p>
                     </div>
                 </div>
@@ -316,7 +316,7 @@ export default function ProfileDetailPage({ params }) {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-xs font-bold text-text-primary truncate">{c.author_name}</span>
-                                            <span className="text-[10px] text-text-muted shrink-0 flex items-center gap-0.5">
+                                            <span className="text-[11px] text-text-muted shrink-0 flex items-center gap-0.5">
                                                 <Clock size={10} />
                                                 {timeAgo(c.date)}
                                             </span>

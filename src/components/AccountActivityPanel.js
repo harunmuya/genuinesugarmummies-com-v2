@@ -31,7 +31,7 @@ function PersonRow({ row, userKey, label }) {
             <UserAvatar name={user.display_name || label} src={photo} size={36} />
             <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-black text-text-primary">{user.display_name || 'Member'}</p>
-                <p className="truncate text-[10px] text-text-muted">{user.username ? `@${user.username} - ` : ''}{timeText(row.created_at)}</p>
+                <p className="truncate text-[11px] text-text-muted">{user.username ? `@${user.username} - ` : ''}{timeText(row.created_at)}</p>
             </div>
         </Link>
     );
@@ -88,7 +88,7 @@ export default function AccountActivityPanel() {
                     <h3 className="text-sm font-black text-text-primary flex items-center gap-1.5"><Rocket size={16} className="text-secondary" /> Silver Activity Center</h3>
                     <p className="text-xs text-text-muted">See who likes, views, and follows you. Boost your profile for more attention.</p>
                 </div>
-                <button onClick={boostProfile} disabled={loading || locked} className="shrink-0 rounded-xl px-3 py-2 text-[10px] font-black text-white gradient-primary disabled:opacity-50">
+                <button onClick={boostProfile} disabled={loading || locked} className="shrink-0 rounded-xl px-3 py-2 text-[11px] font-black text-white gradient-primary disabled:opacity-50">
                     {activeBoost ? 'Boosted' : 'Boost'}
                 </button>
             </div>
@@ -125,7 +125,7 @@ function Metric({ icon: Icon, label, value }) {
         <div className="rounded-xl p-2 text-center" style={{ background: 'var(--color-surface)' }}>
             <Icon size={15} className="mx-auto text-primary" />
             <p className="mt-1 text-base font-black text-primary">{value}</p>
-            <p className="text-[9px] font-bold text-text-muted">{label}</p>
+            <p className="text-[11px] font-bold text-text-muted">{label}</p>
         </div>
     );
 }

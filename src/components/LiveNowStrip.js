@@ -49,12 +49,12 @@ export default function LiveNowStrip({ title = 'Featured Live Now', limit = 8, s
                             <Link key={stream.id} href={`/live/${stream.id}`} className="min-w-40 rounded-2xl bg-gray-950 p-2 text-white shadow-sm">
                                 <div className="relative h-24 overflow-hidden rounded-xl bg-primary/20">
                                     {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <UserAvatar name={host.display_name || 'Live'} size={52} />}
-                                    <span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[9px] font-black">LIVE</span>
+                                    <span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[11px] font-black">LIVE</span>
                                 </div>
                                 <p className="mt-2 truncate text-[11px] font-black">{stream.title || 'GS Live'}</p>
-                                <p className="text-[10px] text-white/70">{host.display_name || 'Member'} - {liveDuration(stream.started_at)}</p>
-                                <p className="text-[10px] text-white/70">{stream.viewer_count || 0} watching - {stream.total_likes || 0} likes - {stream.total_gifts || 0} gifts</p>
-                                <span className="mt-2 block rounded-xl bg-white/10 py-1.5 text-center text-[10px] font-black">Join Live</span>
+                                <p className="text-[11px] text-white/70">{host.display_name || 'Member'} - {liveDuration(stream.started_at)}</p>
+                                <p className="text-[11px] text-white/70">{stream.viewer_count || 0} watching - {stream.total_likes || 0} likes - {stream.total_gifts || 0} gifts</p>
+                                <span className="mt-2 block rounded-xl bg-white/10 py-1.5 text-center text-[11px] font-black">Join Live</span>
                             </Link>
                         );
                     })}

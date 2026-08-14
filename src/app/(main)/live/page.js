@@ -253,7 +253,7 @@ export default function LivePage() {
                         ['Gifts', activeStream.total_gifts || 0, Gift],
                     ].map(([label, value, Icon]) => (
                         <div key={label} className="rounded-2xl p-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
-                            <p className="flex items-center gap-1 text-[10px] font-black text-text-muted"><Icon size={12} /> {label}</p>
+                            <p className="flex items-center gap-1 text-[11px] font-black text-text-muted"><Icon size={12} /> {label}</p>
                             <p className="text-lg font-black text-primary">{value}</p>
                         </div>
                     ))}
@@ -263,7 +263,7 @@ export default function LivePage() {
             <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                     <h2 className="text-sm font-black text-text-primary">Live Now</h2>
-                    <button onClick={loadStreams} className="text-xs font-black text-primary">Refresh</button>
+                    <button onClick={loadStreams} className="min-h-11 rounded-xl px-3 text-xs font-black text-primary active:bg-surface">Refresh</button>
                 </div>
                 {streams.length === 0 ? <p className="rounded-2xl p-4 text-sm text-text-muted" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>No one is live right now.</p> : (
                     <div className="grid gap-3">
@@ -276,9 +276,9 @@ export default function LivePage() {
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm font-black text-text-primary">{stream.title || 'GS Live'}</p>
                                         <p className="truncate text-xs text-text-muted">{host.display_name || 'Member'} - {formatDuration(elapsedSeconds(stream.started_at))}</p>
-                                        <p className="truncate text-[10px] text-text-muted">{stream.total_views || 0} views - {stream.total_likes || 0} likes - {stream.total_comments || 0} comments - {stream.total_gifts || 0} gifts</p>
+                                        <p className="truncate text-[11px] text-text-muted">{stream.total_views || 0} views - {stream.total_likes || 0} likes - {stream.total_comments || 0} comments - {stream.total_gifts || 0} gifts</p>
                                     </div>
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-1 text-[10px] font-black text-danger"><Users size={11} /> {stream.viewer_count || 0}</span>
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-1 text-[11px] font-black text-danger"><Users size={11} /> {stream.viewer_count || 0}</span>
                                 </Link>
                             );
                         })}

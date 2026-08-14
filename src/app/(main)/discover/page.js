@@ -566,10 +566,10 @@ export default function DiscoverPage() {
                         const host = stream.host || {};
                         const photo = host.avatar_url || host.photos?.[0] || '';
                         return <Link key={stream.id} href={`/live/${stream.id}`} className="min-w-40 rounded-2xl p-2 text-white bg-gray-900">
-                            <div className="relative h-24 rounded-xl overflow-hidden bg-primary/20">{photo ? <img src={photo} alt="" className="h-full w-full object-cover" onError={(event) => useFallbackAvatar(event, host.display_name || 'Live')} /> : <UserAvatar name={host.display_name || 'Live'} size={52} />}<span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[9px] font-black">LIVE</span></div>
+                            <div className="relative h-24 rounded-xl overflow-hidden bg-primary/20">{photo ? <img src={photo} alt="" className="h-full w-full object-cover" onError={(event) => useFallbackAvatar(event, host.display_name || 'Live')} /> : <UserAvatar name={host.display_name || 'Live'} size={52} />}<span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[11px] font-black">LIVE</span></div>
                             <p className="mt-2 truncate text-[11px] font-black">{stream.title || 'GS Live'}</p>
-                            <p className="text-[10px] text-white/70">{stream.viewer_count || 0} watching � {liveDuration(stream.started_at)}</p>
-                            <p className="text-[10px] text-white/70">{stream.total_views || 0} views � {stream.total_likes || 0} likes � {stream.total_gifts || 0} gifts</p>
+                            <p className="text-[11px] text-white/70">{stream.viewer_count || 0} watching � {liveDuration(stream.started_at)}</p>
+                            <p className="text-[11px] text-white/70">{stream.total_views || 0} views � {stream.total_likes || 0} likes � {stream.total_gifts || 0} gifts</p>
                         </Link>;
                     })}
                 </div>

@@ -64,7 +64,7 @@ export default function AccountMenuPage() {
                     </div>
                     <p className="truncate text-xs text-text-muted">{user?.email}</p>
                     <span
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
                         style={{ background: 'rgba(20,224,200,0.12)', color: 'var(--color-primary)' }}
                     >
                         <Gem size={10} /> {tier}

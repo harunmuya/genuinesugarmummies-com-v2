@@ -261,7 +261,7 @@ export default function MessageThreadPage({ params }) {
                         <h1 className="text-sm font-black text-text-primary truncate">{peer?.display_name || 'Member'}</h1>
                         <VerifiedBadge verified={peer?.verified} size={14} />
                     </div>
-                    <p className="text-[10px] text-text-muted">{peerTyping ? 'typing...' : canMessage ? 'Chat active' : 'Daily quota reached'}</p>
+                    <p className="text-[11px] text-text-muted">{peerTyping ? 'typing...' : canMessage ? 'Chat active' : 'Daily quota reached'}</p>
                 </div>
                 {!isSelfThread && <Link href={`/calls/${peerId}?type=voice`} className="w-9 h-9 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center" aria-label="Voice call"><PhoneCall size={16} /></Link>}
                 {!isSelfThread && <Link href={`/calls/${peerId}?type=video`} className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center" aria-label="Video call"><Video size={16} /></Link>}
@@ -285,17 +285,17 @@ export default function MessageThreadPage({ params }) {
                                     {message.metadata?.gift?.name && <GiftMessageCard gift={message.metadata.gift} mine={mine} />}
                                     {voiceMeta?.url && <div className={`mb-2 rounded-2xl p-2 ${mine ? 'bg-white/18' : 'bg-sky-50'}`}>
                                         <audio src={voiceMeta.url} controls className="max-w-full" />
-                                        {voiceMeta.durationSeconds ? <p className={`mt-1 text-[10px] font-bold ${mine ? 'text-white/75' : 'text-text-muted'}`}>Voice note · {voiceMeta.durationSeconds}s</p> : null}
+                                        {voiceMeta.durationSeconds ? <p className={`mt-1 text-[11px] font-bold ${mine ? 'text-white/75' : 'text-text-muted'}`}>Voice note · {voiceMeta.durationSeconds}s</p> : null}
                                     </div>}
                                     {!callMeta?.id && <p className="text-sm whitespace-pre-wrap">{message.body}</p>}
                                     {message.metadata?.reactions && Object.keys(message.metadata.reactions).length > 0 && <div className="mt-2 flex flex-wrap gap-1">
                                         {Object.entries(message.metadata.reactions).map(([name, users]) => (
-                                            <button key={name} type="button" onClick={() => reactToMessage(message, name)} className={`rounded-full px-2 py-0.5 text-[10px] font-black ${mine ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-700'}`}>
+                                            <button key={name} type="button" onClick={() => reactToMessage(message, name)} className={`rounded-full px-2 py-0.5 text-[11px] font-black ${mine ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-700'}`}>
                                                 {name === 'heart' ? 'Love' : name} {Array.isArray(users) ? users.length : 0}
                                             </button>
                                         ))}
                                     </div>}
-                                    <p className={`mt-1 text-[9px] ${mine ? 'text-white/75' : 'text-text-muted'}`}>{timeText(message.created_at)} {mine ? `· ${message.read_at ? 'read' : message.delivered_at ? 'delivered' : message.status}` : ''}</p>
+                                    <p className={`mt-1 text-[11px] ${mine ? 'text-white/75' : 'text-text-muted'}`}>{timeText(message.created_at)} {mine ? `· ${message.read_at ? 'read' : message.delivered_at ? 'delivered' : message.status}` : ''}</p>
                                 </div>
                             </div>
                         );
@@ -307,36 +307,36 @@ export default function MessageThreadPage({ params }) {
             <form onSubmit={sendMessage} className="fixed bottom-[72px] left-0 right-0 z-30 px-3">
                 <div className="max-w-md mx-auto rounded-3xl p-2 shadow-xl space-y-2" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <div className="flex flex-wrap gap-1 px-1">
-                        {QUICK_REPLIES.map((reply) => <button key={reply.label} type="button" onClick={() => setText(reply.text)} className="px-2 h-8 rounded-xl bg-primary/10 text-primary text-[10px] font-black">{reply.label}</button>)}
-                        {REACTION_REPLIES.map((reply) => <button key={reply.name} type="button" onClick={() => setText(reply.text)} className="px-2 h-8 rounded-xl bg-amber-100 text-gold text-[10px] font-black">{reply.name}</button>)}
-                        <button type="button" onClick={() => setGiftPanelOpen((open) => !open)} className="px-2 h-8 rounded-xl bg-secondary/10 text-secondary text-[10px] font-black flex items-center gap-1"><Gift size={12} /> Gifts</button>
+                        {QUICK_REPLIES.map((reply) => <button key={reply.label} type="button" onClick={() => setText(reply.text)} className="px-2 h-8 rounded-xl bg-primary/10 text-primary text-[11px] font-black">{reply.label}</button>)}
+                        {REACTION_REPLIES.map((reply) => <button key={reply.name} type="button" onClick={() => setText(reply.text)} className="px-2 h-8 rounded-xl bg-amber-100 text-gold text-[11px] font-black">{reply.name}</button>)}
+                        <button type="button" onClick={() => setGiftPanelOpen((open) => !open)} className="px-2 h-8 rounded-xl bg-secondary/10 text-secondary text-[11px] font-black flex items-center gap-1"><Gift size={12} /> Gifts</button>
                     </div>
                     {giftPanelOpen && <div className="mx-1 rounded-2xl p-2" style={{ background: 'var(--color-surface)' }}>
                         <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-[10px] font-black text-text-primary">Gift credits: {(wallet.giftWallet?.credits || 0) + (wallet.creditWallet?.credits || 0)}</p>
-                            <Link href="/wallet" className="text-[10px] font-black text-primary inline-flex items-center gap-1"><Wallet size={11} /> Buy credits</Link>
+                            <p className="text-[11px] font-black text-text-primary">Gift credits: {(wallet.giftWallet?.credits || 0) + (wallet.creditWallet?.credits || 0)}</p>
+                            <Link href="/wallet" className="text-[11px] font-black text-primary inline-flex items-center gap-1"><Wallet size={11} /> Buy credits</Link>
                         </div>
-                        <p className="mb-2 text-[10px] text-text-muted">Owned gifts send first. If you do not own the gift, approved credits are used and the receiver keeps it in their gift wallet.</p>
+                        <p className="mb-2 text-[11px] text-text-muted">Owned gifts send first. If you do not own the gift, approved credits are used and the receiver keeps it in their gift wallet.</p>
                         <div className="grid grid-cols-3 gap-2 max-h-72 overflow-auto">
                             {(wallet.giftCatalog || []).length === 0 ? <p className="col-span-3 text-xs text-text-muted">No gifts are active yet. Ask admin to activate gift catalog.</p> : wallet.giftCatalog.map((gift) => (
                                 <button key={gift.id} type="button" onClick={() => sendGift(gift)} className="rounded-xl p-2 text-left bg-white/80 shadow-sm ring-1 ring-black/5">
                                     <GiftVisual gift={gift} className="mb-1 h-14 w-full rounded-lg" />
-                                    <span className="block truncate text-[10px] font-black text-text-primary">{gift.name}</span>
-                                    <span className="text-[9px] font-black text-primary">{inventoryByGift.get(gift.id)?.quantity ? `Owned x${inventoryByGift.get(gift.id)?.quantity}` : `${gift.credit_cost || 0} credits`}</span>
+                                    <span className="block truncate text-[11px] font-black text-text-primary">{gift.name}</span>
+                                    <span className="text-[11px] font-black text-primary">{inventoryByGift.get(gift.id)?.quantity ? `Owned x${inventoryByGift.get(gift.id)?.quantity}` : `${gift.credit_cost || 0} credits`}</span>
                                 </button>
                             ))}
                         </div>
                     </div>}
                     {attachment?.type === 'image' && <Preview onClear={() => setAttachment(null)}><img src={attachment.url} alt="" className="w-20 h-20 rounded-xl object-cover" /></Preview>}
                     {attachment?.type === 'gif' && <Preview onClear={() => setAttachment(null)}><span className="text-xs font-black text-gold">{attachment.name}</span></Preview>}
-                    {voiceNote?.url && <Preview onClear={() => setVoiceNote(null)}><div className="flex items-center gap-2"><audio src={voiceNote.url} controls className="max-w-[210px]" /><span className="text-[10px] font-black text-primary">{voiceNote.durationSeconds || 0}s</span></div></Preview>}
+                    {voiceNote?.url && <Preview onClear={() => setVoiceNote(null)}><div className="flex items-center gap-2"><audio src={voiceNote.url} controls className="max-w-[210px]" /><span className="text-[11px] font-black text-primary">{voiceNote.durationSeconds || 0}s</span></div></Preview>}
                     <div className="flex items-center gap-2">
                         <input value={text} onChange={handleTextChange} placeholder={canMessage ? 'Type a message' : 'Upgrade for more messages'} className="min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm" style={{ background: 'var(--color-surface)' }} />
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center" aria-label="Attach image"><ImagePlus size={17} /></button>
                         <VoiceRecorder disabled={!canMessage} onRecorded={setVoiceNote} onError={setStatus} />
                         <button className="w-11 h-10 rounded-2xl gradient-primary text-white flex items-center justify-center" aria-label="Send"><Send size={17} /></button>
                     </div>
-                    {!canMessage && <p className="px-2 text-[10px] font-bold text-text-muted flex items-center gap-1"><Lock size={11} /> Your message quota is exhausted. Upgrade for more access.</p>}
+                    {!canMessage && <p className="px-2 text-[11px] font-bold text-text-muted flex items-center gap-1"><Lock size={11} /> Your message quota is exhausted. Upgrade for more access.</p>}
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => { attachImage(event.target.files?.[0]); event.target.value = ''; }} />
                 </div>
             </form>
@@ -363,9 +363,9 @@ function GiftMessageCard({ gift, mine }) {
             <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                     <p className={`truncate text-xs font-black ${mine ? 'text-white' : 'text-text-primary'}`}>{normalized.name}</p>
-                    <p className={`text-[10px] ${mine ? 'text-white/75' : 'text-text-muted'}`}>{gift.source === 'gift_wallet' ? 'Sent from gift wallet' : 'Premium gift delivered'}</p>
+                    <p className={`text-[11px] ${mine ? 'text-white/75' : 'text-text-muted'}`}>{gift.source === 'gift_wallet' ? 'Sent from gift wallet' : 'Premium gift delivered'}</p>
                 </div>
-                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${mine ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>{gift.creditsSpent || normalized.credit_cost || 0} cr</span>
+                <span className={`rounded-full px-2 py-1 text-[11px] font-black ${mine ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>{gift.creditsSpent || normalized.credit_cost || 0} cr</span>
             </div>
         </div>
     );
@@ -388,7 +388,7 @@ function CallLogCard({ call, mine }) {
                 </span>
                 <div className="min-w-0">
                     <p className={`text-xs font-black ${mine ? 'text-white' : 'text-text-primary'}`}>{isVideo ? 'Video call' : 'Voice call'} {call.status || 'ended'}</p>
-                    <p className={`text-[10px] ${mine ? 'text-white/75' : 'text-text-muted'}`}>Duration {formatCallDuration(call.durationSeconds)}</p>
+                    <p className={`text-[11px] ${mine ? 'text-white/75' : 'text-text-muted'}`}>Duration {formatCallDuration(call.durationSeconds)}</p>
                 </div>
             </div>
         </div>

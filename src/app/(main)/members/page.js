@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Bell, Eye, Filter, Gift, Loader2, MapPin, MessageSquareText, Phone, PhoneCall, Search, UserPlus, UserRoundCheck, Users } from 'lucide-react';
+import { Bell, Filter, Loader2, MapPin, MessageSquareText, Phone, Search, UserPlus, UserRoundCheck, Users } from 'lucide-react';
 import UserAvatar from '@/components/UserAvatar';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import LiveNowStrip from '@/components/LiveNowStrip';
@@ -189,37 +189,13 @@ export default function MembersPage() {
         openMember(member, '#message');
     }
 
-    function canGift() {
-        const tier = String(user?.subscription_tier || 'free').toLowerCase();
-        return Boolean(user?.admin_approved && !user?.package_locked && ['basic', 'silver', 'gold', 'diamond'].includes(tier));
-    }
 
     function canCall() {
         const tier = String(user?.subscription_tier || 'free').toLowerCase();
         return Boolean(user?.admin_approved && !user?.package_locked && ['silver', 'gold', 'diamond'].includes(tier));
     }
 
-    function openGift(member) {
-        if (!canGift()) {
-            setNotice('Gifts require an approved package. Upgrade to send premium GS gifts.');
-            window.setTimeout(() => router.push('/packages'), 900);
-            return;
-        }
-        openMember(member, '#gift');
-    }
 
-    function openCall(member) {
-        if (member.id === user?.id) {
-            setNotice('You cannot call yourself. Choose another member to start a call.');
-            return;
-        }
-        if (!canCall()) {
-            setNotice('Voice calls require Silver or Gold approval.');
-            window.setTimeout(() => router.push('/packages'), 900);
-            return;
-        }
-        router.push(`/calls/${member.id}?type=voice`);
-    }
 
     return (
         <div className="px-4 py-4 pb-28 space-y-5">
@@ -244,14 +220,14 @@ export default function MembersPage() {
                             <UserAvatar name="You" size={58} />
                             <span className="absolute -right-0.5 -bottom-0.5 w-5 h-5 rounded-full gradient-primary text-white text-sm leading-5 font-bold">+</span>
                         </div>
-                        <p className="text-[10px] font-semibold text-text-secondary">Your Profile</p>
+                        <p className="text-[11px] font-semibold text-text-secondary">Your Profile</p>
                     </Link>
                     {visibleMembers.slice(0, 12).map((member) => (
                         <button key={member.id} type="button" onClick={() => openMember(member)} className="shrink-0 text-center space-y-1">
                             <div className="p-0.5 rounded-full" style={{ background: member.isOnline ? 'var(--gradient-primary)' : 'rgba(148,163,184,0.35)' }}>
                                 <UserAvatar name={member.name} src={member.avatarUrl} size={54} />
                             </div>
-                            <p className="w-16 truncate text-[10px] font-semibold text-text-secondary">{member.name}</p>
+                            <p className="w-16 truncate text-[11px] font-semibold text-text-secondary">{member.name}</p>
                         </button>
                     ))}
                 </div>
@@ -307,47 +283,57 @@ export default function MembersPage() {
                                         <div className="flex items-center gap-1 min-w-0"><h2 className="text-sm font-black truncate">{member.name}</h2><VerifiedBadge verified={member.verified} size={15} /></div>
                                         <p className="text-[11px] opacity-85 truncate">{member.age ? `${member.age} - ` : ''}{member.lookingFor || labelText(member.profileLabel)}</p>
                                     </div>
-                                    <span className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold text-white bg-black/55 backdrop-blur-sm">{labelText(member.profileLabel)}</span>
-                                    {member.isBoosted && <span className="absolute left-2 top-9 rounded-full bg-secondary px-2 py-1 text-[10px] font-black text-white shadow-sm">BOOSTED</span>}
+                                    <span className="absolute top-2 left-2 px-2 py-1 rounded-full text-[11px] font-bold text-white bg-black/55 backdrop-blur-sm">{labelText(member.profileLabel)}</span>
+                                    {member.isBoosted && <span className="absolute left-2 top-9 rounded-full bg-secondary px-2 py-1 text-[11px] font-black text-white shadow-sm">BOOSTED</span>}
                                     <span className={`absolute top-2 right-2 w-3.5 h-3.5 rounded-full ring-4 ring-white/80 ${presenceTone(member)}`} title={timeSince(member.lastSeenAt) || 'offline'} aria-label={timeSince(member.lastSeenAt) || 'offline'} />
                                 </div>
                             </button>
                             <div className="p-2.5 space-y-2">
                                 <div className="min-h-[46px] space-y-1">
                                     {member.location && <p className="flex items-center gap-1 text-[11px] text-text-muted truncate"><MapPin size={11} /> {member.location}</p>}
-                                    <div className="flex items-center justify-between gap-1"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-primary bg-primary/10">{planText(member.subscriptionTier)}</span><span className="text-[10px] text-text-muted">{member.followersCount || 0} follows</span></div>
-                                    <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                                    <div className="flex items-center justify-between gap-1"><span className="px-2 py-0.5 rounded-full text-[11px] font-bold text-primary bg-primary/10">{planText(member.subscriptionTier)}</span><span className="text-[11px] text-text-muted">{member.followersCount || 0} follows</span></div>
+                                    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
                                         <span className={`inline-block w-2.5 h-2.5 rounded-full ${presenceTone(member)}`} title={timeSince(member.lastSeenAt)} aria-label={timeSince(member.lastSeenAt)} />
                                         <span className="truncate">{timeSince(member.lastSeenAt) || 'offline'}</span>
                                     </div>
-                                    <div className={`inline-flex max-w-full rounded-full bg-gradient-to-r ${lookingTone(member)} px-2 py-1 text-[10px] font-black text-white shadow-sm`}>
+                                    <div className={`inline-flex max-w-full rounded-full bg-gradient-to-r ${lookingTone(member)} px-2 py-1 text-[11px] font-black text-white shadow-sm`}>
                                         <span className="truncate">Looking for {lookingLabel(member)}</span>
                                     </div>
                                 </div>
                                 <div className="rounded-xl px-2 py-1.5 flex items-center justify-between gap-1.5" style={{ background: 'var(--color-surface)' }}>
                                     <span className="min-w-0 flex items-center gap-1.5"><Phone size={12} className="text-text-muted shrink-0" /><span className="text-[11px] font-black tracking-wide text-text-secondary truncate select-none">{member.phoneMasked || 'Hidden'}</span></span>
-                                    <span className="text-[9px] font-black text-primary bg-primary/10 rounded-full px-1.5 py-0.5">Silver+</span>
+                                    <span className="text-[11px] font-black text-primary bg-primary/10 rounded-full px-1.5 py-0.5">Silver+</span>
                                 </div>
-                                <div className="grid grid-cols-5 gap-1">
-                                    <button onClick={() => toggleFollow(member.id)} className={`min-h-11 rounded-xl px-0.5 text-[8.5px] font-black leading-none inline-flex flex-col items-center justify-center gap-1 text-center ${followed[member.id] ? 'gradient-primary text-white' : 'bg-primary/10 text-primary'}`}>
-                                        <UserRoundCheck size={15} strokeWidth={2.5} />
-                                        <span className="max-w-full truncate">{followed[member.id] ? 'Following' : 'Follow'}</span>
+                                {/*
+                                  Two actions, not five.
+
+                                  This was a grid-cols-5 of Follow, Message,
+                                  Gift, Call and View Profile, inside a card that
+                                  is itself one of two columns. On a 360px phone
+                                  that is roughly 26px per button, which is why
+                                  the labels were set at 8.5px and truncated, and
+                                  why they were impossible to hit accurately.
+
+                                  Bigger text alone would only have made them
+                                  overflow. The card already opens the profile
+                                  when tapped, so View Profile was duplicating
+                                  it, and Gift and Call belong on the profile
+                                  where there is room to explain what they cost.
+                                */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => toggleFollow(member.id)}
+                                        className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-bold ${followed[member.id] ? 'bg-primary/15 text-primary' : 'bg-surface text-text-secondary'}`}
+                                    >
+                                        <UserRoundCheck size={16} strokeWidth={2.5} />
+                                        <span className="truncate">{followed[member.id] ? 'Following' : 'Follow'}</span>
                                     </button>
-                                    <button onClick={() => openMessage(member)} className="min-h-11 rounded-xl bg-secondary/10 px-0.5 text-[8.5px] font-black leading-none text-secondary inline-flex flex-col items-center justify-center gap-1 text-center">
-                                        <MessageSquareText size={15} strokeWidth={2.5} />
-                                        <span className="max-w-full truncate">Message</span>
-                                    </button>
-                                    <button onClick={() => openGift(member)} className="min-h-11 rounded-xl bg-amber-100 px-0.5 text-[8.5px] font-black leading-none text-gold inline-flex flex-col items-center justify-center gap-1 text-center">
-                                        <Gift size={15} strokeWidth={2.5} />
-                                        <span className="max-w-full truncate">Gift</span>
-                                    </button>
-                                    {member.id === user?.id ? <span className="min-h-11 rounded-xl bg-surface px-0.5 text-[8.5px] font-black leading-none text-text-muted flex flex-col items-center justify-center text-center">You</span> : <button onClick={() => openCall(member)} className="min-h-11 rounded-xl bg-sky-100 px-0.5 text-[8.5px] font-black leading-none text-sky-700 inline-flex flex-col items-center justify-center gap-1 text-center">
-                                        <PhoneCall size={15} strokeWidth={2.5} />
-                                        <span className="max-w-full truncate">Call</span>
-                                    </button>}
-                                    <button onClick={() => openMember(member)} className="min-h-11 rounded-xl bg-surface px-0.5 text-[8.5px] font-black leading-none text-text-secondary inline-flex flex-col items-center justify-center gap-0.5 text-center">
-                                        <Eye size={15} strokeWidth={2.5} />
-                                        <span className="max-w-full leading-[0.9]">View<br />Profile</span>
+                                    <button
+                                        onClick={() => openMessage(member)}
+                                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-2 text-[12px] font-bold text-bg-dark"
+                                    >
+                                        <MessageSquareText size={16} strokeWidth={2.5} />
+                                        <span className="truncate">Message</span>
                                     </button>
                                 </div>
                             </div>

@@ -35,7 +35,7 @@ export default function ContactButtons({ profileName }) {
                     </svg>
                     <div className="min-w-0">
                         <span className="block text-sm font-bold leading-tight">Telegram</span>
-                        <span className="block text-[10px] opacity-80 font-medium flex items-center gap-0.5">
+                        <span className="block text-[11px] opacity-80 font-medium flex items-center gap-0.5">
                             <Star size={8} /> Recommended
                         </span>
                     </div>
@@ -52,7 +52,7 @@ export default function ContactButtons({ profileName }) {
                     </svg>
                     <div className="min-w-0">
                         <span className="block text-sm font-bold leading-tight">SMS</span>
-                        <span className="block text-[10px] opacity-80 font-medium flex items-center gap-0.5">
+                        <span className="block text-[11px] opacity-80 font-medium flex items-center gap-0.5">
                             <Star size={8} /> Recommended
                         </span>
                     </div>
@@ -69,7 +69,7 @@ export default function ContactButtons({ profileName }) {
                     </svg>
                     <div className="min-w-0">
                         <span className="block text-sm font-bold leading-tight">Phone Call</span>
-                        <span className="block text-[10px] opacity-70 font-medium">Call Admin</span>
+                        <span className="block text-[11px] opacity-70 font-medium">Call Admin</span>
                     </div>
                 </a>
 
@@ -85,7 +85,7 @@ export default function ContactButtons({ profileName }) {
                     </svg>
                     <div className="min-w-0">
                         <span className="block text-sm font-bold leading-tight">Email</span>
-                        <span className="block text-[10px] opacity-70 font-medium">Write to us</span>
+                        <span className="block text-[11px] opacity-70 font-medium">Write to us</span>
                     </div>
                 </a>
 
@@ -95,7 +95,7 @@ export default function ContactButtons({ profileName }) {
                     style={{ backgroundColor: '#25D366', color: 'white' }}
                 >
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-black/50 px-2 py-0.5 rounded-full">
+                        <span className="text-[11px] font-bold uppercase tracking-wider bg-black/50 px-2 py-0.5 rounded-full">
                             Paused
                         </span>
                     </div>
@@ -104,7 +104,7 @@ export default function ContactButtons({ profileName }) {
                     </svg>
                     <div className="min-w-0">
                         <span className="block text-sm font-bold leading-tight">WhatsApp</span>
-                        <span className="block text-[10px] opacity-80 font-medium">Currently Paused</span>
+                        <span className="block text-[11px] opacity-80 font-medium">Currently Paused</span>
                     </div>
                 </div>
             </div>
