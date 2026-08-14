@@ -274,6 +274,36 @@ async function analyzeSelfie(selfieDataUrl, profilePicUrl) {
 }
 
 
+/**
+ * Collapse repeated standing reminders down to the most recent one.
+ *
+ * "Complete your profile", "Manual verification is available" and "Unlock
+ * premium GS features" are conditions rather than events, and the server used
+ * to post a fresh copy of each every 24 hours for as long as the condition
+ * held. That is three new items a day for an unverified free account, and it is
+ * how an inbox reaches 58 messages showing the same two notices repeatedly.
+ *
+ * The server no longer does that. This exists for the copies already delivered,
+ * which are sitting in members' inboxes and in localStorage right now and would
+ * otherwise stay there. It is also a reasonable guard on its own: a reminder is
+ * worth showing once, not once per day it has been true.
+ *
+ * Only these types collapse. Real messages, likes and matches are events, and
+ * two of them are genuinely two things.
+ */
+const STANDING_REMINDER_TYPES = new Set(['profile', 'verification', 'package']);
+
+function collapseStandingReminders(items) {
+    const keptByType = new Set();
+    return (items || []).filter((item) => {
+        const type = String(item?.type || '');
+        if (!STANDING_REMINDER_TYPES.has(type)) return true;
+        if (keptByType.has(type)) return false;
+        keptByType.add(type);
+        return true;
+    });
+}
+
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [guest, setGuest] = useState(false);
@@ -623,8 +653,8 @@ export function AuthProvider({ children }) {
             setMessages((prev) => {
                 const seen = new Set(prev.map((item) => item.id));
                 const merged = [...inboxItems.filter((item) => !seen.has(item.id)), ...prev].slice(0, 250);
-                setStored(STORAGE_KEYS.MESSAGES, merged);
-                return merged;
+                setStored(STORAGE_KEYS.MESSAGES, collapseStandingReminders(merged));
+                return collapseStandingReminders(merged);
             });
         } catch {}
     }

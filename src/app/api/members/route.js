@@ -167,21 +167,49 @@ async function getUserSettings(supabase, userId) {
     return { data: normalizeSettings(result.data) };
 }
 
-async function alreadyNotifiedToday(supabase, userId, type) {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+/**
+ * Should this standing reminder be posted again?
+ *
+ * These are not events. "Complete your profile", "Manual verification is
+ * available" and "Unlock premium GS features" are conditions: they stay true
+ * until the member does something about them.
+ *
+ * The rule was once every 24 hours, which posted a fresh copy of each one every
+ * single day for as long as the condition held. A free account that had not
+ * verified collected three new inbox messages a day, identical to yesterday's,
+ * which is how an inbox reaches 58 items showing the same two notices over and
+ * over. It also buries the messages that are events — a real message, a match —
+ * under nags nobody has asked to see again.
+ *
+ * Two rules instead:
+ *
+ *   Never post one while an unread copy is already sitting there. Repeating
+ *   something the member has not read yet cannot inform them of anything.
+ *
+ *   Once read, wait a week. The condition is still true and worth raising
+ *   again eventually, but not tomorrow.
+ */
+const REMINDER_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function reminderIsDue(supabase, userId, type) {
     const { data } = await supabase
         .from('user_notifications')
-        .select('id')
+        .select('id, read, created_at')
         .eq('user_id', userId)
         .eq('type', type)
-        .gte('created_at', since)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-    return Boolean(data?.id);
+
+    if (!data?.id) return true;
+    // Still unread: saying it twice adds nothing.
+    if (!data.read) return false;
+    return Date.now() - new Date(data.created_at).getTime() > REMINDER_COOLDOWN_MS;
 }
 
 async function notifyOnceDaily(supabase, userId, payload) {
-    if (!userId || !payload?.type || await alreadyNotifiedToday(supabase, userId, payload.type)) return false;
+    if (!userId || !payload?.type) return false;
+    if (!await reminderIsDue(supabase, userId, payload.type)) return false;
     await supabase.from('user_notifications').insert({ user_id: userId, ...payload });
     return true;
 }

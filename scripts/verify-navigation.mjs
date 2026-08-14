@@ -109,5 +109,32 @@ console.log('\nThe old page was kept, not deleted');
     check('and the menu links to it', /\/profile\/details/.test(menu));
 }
 
+console.log('\nStanding reminders do not repost every day');
+{
+    /*
+      "Complete your profile", "Manual verification is available" and "Unlock
+      premium GS features" are conditions, not events. Posting a fresh copy of
+      each every 24 hours for as long as the condition holds is how an inbox
+      reaches 58 items showing the same two notices, and it buries the messages
+      that are genuinely events under nags nobody asked to see again.
+    */
+    const api = strip(readFileSync(join('src', 'app', 'api', 'members', 'route.js'), 'utf8'));
+    check('a reminder is not reposted while unread', /if \(!data\.read\) return false;/.test(api),
+        'repeating something unread cannot inform anybody');
+    check('and waits a while after one is read', /REMINDER_COOLDOWN_MS/.test(api));
+    check('the 24 hour rule is gone', !/alreadyNotifiedToday/.test(api));
+
+    const auth = strip(readFileSync(join('src', 'contexts', 'AuthContext.js'), 'utf8'));
+    check('copies already delivered are collapsed for display',
+        /collapseStandingReminders/.test(auth),
+        'they are in members inboxes and localStorage right now');
+    check('only reminders collapse, not real messages',
+        /STANDING_REMINDER_TYPES/.test(auth),
+        'two likes are two things');
+
+    check('and a migration clears the backlog',
+        existsSync(join('supabase', 'migrations', '20260813_030_collapse_repeated_reminders.sql')));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode = fail ? 1 : 0;
