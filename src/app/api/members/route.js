@@ -513,6 +513,26 @@ async function uploadMessageAsset(supabase, rawUrl, { ownerId, type, name }) {
     }
 }
 
+/**
+ * Round a coordinate to roughly a kilometre.
+ *
+ * Two decimal places is about 1.1km at the equator. Enough for a distance
+ * estimate on a card and for the nearby filter; not enough to find a house.
+ */
+function coarseCoordinate(value) {
+    /*
+      null, undefined and '' are rejected before Number(), because Number(null)
+      and Number('') are both 0, and 0 is finite. Without this a member who has
+      never shared a location lands at 0,0 in the Gulf of Guinea, which is a
+      real coordinate: they would show a distance, sort into the nearby filter,
+      and appear to be standing next to everyone else missing a location.
+    */
+    if (value === null || value === undefined || value === '') return null;
+    const number = Number(value);
+    if (!Number.isFinite(number)) return null;
+    return Math.round(number * 100) / 100;
+}
+
 function normalizeMember(member, { canViewPhone = false, includeEmail = false } = {}) {
     const phone = member.phone_number || member.phone || '';
     const verified = Boolean(member.verified || member.verification_status === 'verified');
@@ -533,8 +553,21 @@ function normalizeMember(member, { canViewPhone = false, includeEmail = false } 
         location: member.location || member.city || member.country || '',
         country: member.country || '',
         city: member.city || '',
-        latitude: member.latitude ?? null,
-        longitude: member.longitude ?? null,
+        /*
+          Coarsened, deliberately.
+
+          These were returned at full precision to every caller, and the members
+          endpoint is a public GET, so anyone could read the exact coordinates
+          of every member on the platform without signing in. Full precision
+          locates a person to within metres, which on a dating app means their
+          home, and none of the features here need that.
+
+          Two decimal places is about 1.1km, which is ample for the distance
+          shown on a card and for the nearby filter, and useless for finding
+          somebody's front door.
+        */
+        latitude: coarseCoordinate(member.latitude),
+        longitude: coarseCoordinate(member.longitude),
         geoUpdatedAt: member.geo_updated_at || null,
         profileLabel: member.profile_label || member.member_category || 'member',
         memberCategory: member.member_category || member.profile_label || 'member',
@@ -942,6 +975,45 @@ export async function POST(request) {
         const result = await supabase.from('push_subscriptions').upsert(payload, { onConflict: 'endpoint' }).select('id').maybeSingle();
         if (result.error && result.error.code !== 'PGRST205') return NextResponse.json({ error: result.error.message }, { status: 500 });
         return NextResponse.json({ ok: true, persisted: !result.error });
+    }
+
+    /*
+      Mark the inbox read, on the server.
+
+      markMessagesRead in AuthContext set read: true in React state and in
+      localStorage and told nobody. user_notifications.read stayed false
+      forever, so the badge returned on any other device and after any clear of
+      app data, and a member who had read everything still carried a count.
+
+      It also quietly disabled the reminder cooldown. reminderIsDue refuses to
+      repost while an unread copy exists, and otherwise waits a week after one
+      is read. With read never becoming true, the second branch was
+      unreachable, so each standing reminder could only ever be posted once.
+    */
+    if (action === 'mark_inbox_read') {
+        const userId = await resolveUserId(supabase, body);
+        if (!userId) return NextResponse.json({ ok: true, updated: 0 });
+
+        let query = supabase
+            .from('user_notifications')
+            .update({ read: true })
+            .eq('user_id', userId)
+            .eq('read', false);
+
+        // Optionally scoped, so opening one alert does not silently clear the
+        // rest of an inbox the member has not looked at.
+        const ids = Array.isArray(body.notificationIds)
+            ? body.notificationIds.filter(Boolean).slice(0, 200)
+            : null;
+        if (ids?.length) query = query.in('id', ids);
+
+        const result = await query.select('id');
+        if (result.error) {
+            const problem = classifySupabaseError(result.error);
+            return NextResponse.json({ error: problem.message },
+                { status: problem.kind === 'quota' ? 503 : 500 });
+        }
+        return NextResponse.json({ ok: true, updated: (result.data || []).length });
     }
 
     if (action === 'account_inbox') {

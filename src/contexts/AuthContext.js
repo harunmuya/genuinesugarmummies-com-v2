@@ -531,12 +531,32 @@ export function AuthProvider({ children }) {
     }, []);
 
     const markMessagesRead = useCallback(() => {
+        /*
+          The local half. This was all it did, so read state lived only in React
+          state and localStorage: the badge returned on any other device and
+          after any clear of app data, and the server's read column stayed false
+          for accounts that had read everything. It also meant the standing
+          reminders could never reach their post-read cooldown.
+        */
         setMessages(prev => {
             const updated = prev.map(m => ({ ...m, read: true, unreadCount: 0 }));
             setStored(STORAGE_KEYS.MESSAGES, updated);
             return updated;
         });
-    }, []);
+
+        /*
+          The server half. Deliberately fire and forget: the local state is
+          already correct and the member is looking at it, so a failure here
+          should not surface as an error over a screen that looks fine. The next
+          inbox load reconciles.
+        */
+        if (!user?.id && !user?.email) return;
+        fetch('/api/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'mark_inbox_read', memberId: user?.id, email: user?.email }),
+        }).catch(() => {});
+    }, [user?.id, user?.email]);
 
     async function syncAccountToServer(account, auth = {}) {
         if (!account?.email) return null;
