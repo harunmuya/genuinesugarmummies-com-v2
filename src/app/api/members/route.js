@@ -4,6 +4,7 @@ import { emailHtml, sendAndLogEmail } from '@/lib/email';
 import { hashPassword, verifyPassword, createResetCode, hashResetCode } from '@/lib/security';
 import { activeTierId, dailyLimitForFeature, getPackageTier } from '@/lib/packageAccess';
 import { classifySupabaseError } from '@/lib/supabaseError';
+import { checkThrottle, recordAttempt } from '@/lib/authThrottle';
 
 /*
   The column list behind the member directory. It has to stay a plain list of
@@ -1233,6 +1234,12 @@ export async function POST(request) {
     }
     if (action === 'request_password_reset') {
         const email = String(body.email || '').trim().toLowerCase();
+        const requestThrottle = await checkThrottle(supabase, 'resetRequest', email);
+        if (requestThrottle.blocked) {
+            return NextResponse.json({ error: requestThrottle.error }, { status: 429 });
+        }
+        await recordAttempt(supabase, 'resetRequest', email, false);
+
         if (!email || !email.includes('@')) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
 
         const { data: account, error: accountError } = await supabase
@@ -1278,6 +1285,11 @@ export async function POST(request) {
         if (!/^\d{6}$/.test(code)) return NextResponse.json({ error: 'Enter the 6-digit reset code.' }, { status: 400 });
         if (password.length < 6) return NextResponse.json({ error: 'New password must be at least 6 characters.' }, { status: 400 });
 
+        const resetThrottle = await checkThrottle(supabase, 'reset', email);
+        if (resetThrottle.blocked) {
+            return NextResponse.json({ error: resetThrottle.error }, { status: 429 });
+        }
+
         const codeHash = hashResetCode(email, code);
         const codeResult = await supabase
             .from('password_reset_codes')
@@ -1290,7 +1302,17 @@ export async function POST(request) {
             .limit(1)
             .maybeSingle();
         if (codeResult.error && codeResult.error.code !== 'PGRST116') return NextResponse.json({ error: codeResult.error.message }, { status: 500 });
-        if (!codeResult.data?.id) return NextResponse.json({ error: 'Invalid or expired reset code.' }, { status: 400 });
+        if (!codeResult.data?.id) {
+            /*
+              The important one. The code is six digits, so 900,000
+              possibilities, and this check ran as many times as anybody sent.
+              Requesting a reset for an address and walking the code space was
+              a complete takeover of any account on the platform.
+            */
+            await recordAttempt(supabase, 'reset', email, false);
+            return NextResponse.json({ error: 'Invalid or expired reset code.' }, { status: 400 });
+        }
+        await recordAttempt(supabase, 'reset', email, true);
 
         const patch = { password_hash: hashPassword(password), password_updated_at: new Date().toISOString() };
         const updated = await supabase.from('users').update(patch).eq('id', codeResult.data.user_id).select(FULL_MEMBER_FIELDS).maybeSingle();
@@ -1305,9 +1327,30 @@ export async function POST(request) {
         if (!email || !email.includes('@')) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
         if (password.length < 6) return NextResponse.json({ error: 'Password is required.' }, { status: 400 });
 
+        // Nothing limited guesses before this: any address could be attacked
+        // indefinitely at whatever rate the attacker could manage.
+        const loginThrottle = await checkThrottle(supabase, 'login', email);
+        if (loginThrottle.blocked) {
+            return NextResponse.json({ error: loginThrottle.error }, { status: 429 });
+        }
+
+        /*
+          password_hash has to be asked for by name.
+
+          This selected FULL_MEMBER_FIELDS, and password_hash was removed from
+          that list so the member directory would stop pulling 240 password
+          hashes out of the table on every browse. The two account-creation
+          paths select it explicitly and were checked at the time; this one was
+          not, and it reads result.data.password_hash a few lines below.
+
+          The effect was total: every sign-in would have fallen through to
+          "This account has no password yet", because the column was simply
+          absent from the row. It went unnoticed only because the database was
+          refusing every request for quota while the change was made.
+        */
         let result = await supabase
             .from('users')
-            .select(FULL_MEMBER_FIELDS)
+            .select(`${FULL_MEMBER_FIELDS}, password_hash`)
             .eq('email', email)
             .maybeSingle();
 
@@ -1318,8 +1361,14 @@ export async function POST(request) {
         if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
         if (!result.data) return NextResponse.json({ error: 'No account found for this email. Create an account first.' }, { status: 404 });
         if (!result.data.password_hash) return NextResponse.json({ error: 'This account has no password yet. Create a new account password first.' }, { status: 401 });
-        if (!verifyPassword(password, result.data.password_hash)) return NextResponse.json({ error: 'Incorrect email or password.' }, { status: 401 });
+        if (!verifyPassword(password, result.data.password_hash)) {
+            await recordAttempt(supabase, 'login', email, false);
+            return NextResponse.json({ error: 'Incorrect email or password.' }, { status: 401 });
+        }
 
+        // Success clears the run of failures, so somebody who mistypes a few
+        // times and then gets it right is not left locked out.
+        await recordAttempt(supabase, 'login', email, true);
         await supabase.from('users').update({ last_seen_at: new Date().toISOString(), last_seen: new Date().toISOString() }).eq('id', result.data.id);
         return NextResponse.json({ ok: true, member: normalizeMember(result.data, { canViewPhone: true, includeEmail: true }) });
     }
