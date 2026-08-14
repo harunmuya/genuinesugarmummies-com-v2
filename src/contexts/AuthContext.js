@@ -1307,6 +1307,7 @@ export function AuthProvider({ children }) {
 
     // ---- Like/Match/Pass ----
     const addLike = useCallback(async (profile) => {
+        let matchResult = { matched: false, match: null };
         if (user?.id) {
             const memberId = profile?.id || (String(profile?.wpId || '').startsWith('member:') ? String(profile.wpId).slice(7) : null);
             const payload = memberId
@@ -1319,6 +1320,13 @@ export function AuthProvider({ children }) {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) return { ok: false, error: data.error || 'Like limit reached.', redirectTo: data.redirectTo };
+            /*
+              The API answers whether this like completed a mutual one. That
+              answer was being discarded here, so the only way a screen could
+              call something a match was to guess from a compatibility score,
+              which is what discover did.
+            */
+            matchResult = { matched: Boolean(data.matched), match: data.match || null };
         }
         setLikes(prev => {
             if (prev.find(l => l.wpId === profile.wpId)) return prev;
@@ -1327,7 +1335,7 @@ export function AuthProvider({ children }) {
             return updated;
         });
         logActivity('like', { title: `You liked ${profile.name || 'someone'}`, message: profile.location || '', image: profile.imageUrl, profileId: profile.wpId });
-        return { ok: true };
+        return { ok: true, ...matchResult };
     }, [logActivity, user?.id, user?.display_name, user?.email]);
 
     const addMatch = useCallback((profile, score = 85) => {
@@ -1367,7 +1375,7 @@ export function AuthProvider({ children }) {
             setStored(STORAGE_KEYS.PASSES, updated);
             return updated;
         });
-        return { ok: true };
+        return { ok: true, ...matchResult };
     }, [user?.id]);
 
     const isProfileSwiped = useCallback((wpId) => {
@@ -1413,6 +1421,7 @@ export function AuthProvider({ children }) {
 
     // ---- Super Like ----
     const addSuperLike = useCallback(async (profile) => {
+        let matchResult = { matched: false, match: null };
         if (user?.id) {
             const memberId = profile?.id || (String(profile?.wpId || '').startsWith('member:') ? String(profile.wpId).slice(7) : null);
             const payload = memberId
@@ -1425,6 +1434,7 @@ export function AuthProvider({ children }) {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) return { ok: false, error: data.error || 'Super like limit reached.', redirectTo: data.redirectTo };
+            matchResult = { matched: Boolean(data.matched), match: data.match || null };
         }
         setLikes(prev => {
             if (prev.find(l => l.wpId === profile.wpId)) return prev;

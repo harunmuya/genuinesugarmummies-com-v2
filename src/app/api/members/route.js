@@ -350,6 +350,83 @@ async function enforceDailyLimit(supabase, userId, kind) {
     return { ok: true, plan, limit, used: current + 1, remaining: Math.max(0, limit - current - 1) };
 }
 
+/**
+ * Turn a pair of likes into a match, if the other one already exists.
+ *
+ * Likes were being recorded and never read back the other way, so two people
+ * liking each other produced two rows and nothing else. The matches table has
+ * existed since 20260703_120 and no code had ever written to it, which is why
+ * the matches screen listed the whole member directory instead.
+ *
+ * The pair is stored in a fixed order. `matches` has UNIQUE(user_one_id,
+ * user_two_id), and that constraint does not know the two columns are
+ * interchangeable: inserting (A,B) and (B,A) would create two rows for one
+ * match, and then every match would appear twice for one of the two people
+ * involved. Sorting the ids makes the constraint mean what it looks like it
+ * means.
+ *
+ * Returns `{ matched, peer }`. A failure to write the match is deliberately not
+ * fatal to the like: the like is the thing the user asked for, and losing it
+ * because the match bookkeeping failed would be the worse outcome.
+ */
+async function recordMatchIfMutual(supabase, actorUserId, memberId, options = {}) {
+    if (!actorUserId || !memberId || actorUserId === memberId) {
+        return { matched: false, peer: null };
+    }
+
+    try {
+        // Did they like us first?
+        const reciprocal = await supabase
+            .from('member_likes')
+            .select('id, is_super_like, created_at')
+            .eq('liker_id', memberId)
+            .eq('liked_id', actorUserId)
+            .maybeSingle();
+
+        if (reciprocal.error || !reciprocal.data?.id) return { matched: false, peer: null };
+
+        const [userOne, userTwo] = [actorUserId, memberId].sort();
+        const inserted = await supabase
+            .from('matches')
+            .upsert({
+                user_one_id: userOne,
+                user_two_id: userTwo,
+                source_key: options.superLike || reciprocal.data.is_super_like ? 'superlike' : 'like',
+            }, { onConflict: 'user_one_id,user_two_id' })
+            .select('id, created_at')
+            .maybeSingle();
+
+        if (inserted.error) return { matched: false, peer: null };
+
+        // The peer's profile, so the client can show who it matched with
+        // without a second round trip.
+        const peer = await supabase
+            .from('users')
+            .select('id, display_name, username, avatar_url, photos, age, location, verified, verification_status')
+            .eq('id', memberId)
+            .maybeSingle();
+
+        // Both sides get told. The liker sees it in the response; the person
+        // who liked first is not looking at the app and needs the notification.
+        try {
+            await supabase.from('user_notifications').insert({
+                user_id: memberId,
+                type: 'match',
+                title: 'It is a match',
+                body: `You and ${String(options.actorName || 'someone').slice(0, 80)} liked each other. Say hello.`,
+                metadata: { actorUserId, matchId: inserted.data?.id || null },
+            });
+        } catch { /* the match itself is what matters */ }
+
+        return {
+            matched: true,
+            peer: peer.data ? normalizeMember(peer.data, { canViewPhone: false }) : null,
+        };
+    } catch {
+        return { matched: false, peer: null };
+    }
+}
+
 async function recordInteraction(supabase, userId, profileKey, action, details = {}) {
     if (!userId || !profileKey || !action) return;
     try {
@@ -850,6 +927,80 @@ export async function POST(request) {
         }
         if (result.error && result.error.code !== 'PGRST205') return NextResponse.json({ error: result.error.message }, { status: 500 });
         return NextResponse.json({ ok: true, notifications: result.data || [] });
+    }
+
+    /*
+      The real matches for an account.
+
+      The matches screen used to request the whole member directory and relabel
+      it, so it showed people who had never liked anybody. This returns rows
+      from the matches table, which now actually gets written when two likes
+      meet, with each peer's profile and any conversation already open with
+      them so the screen can show a last message and go straight to the thread.
+    */
+    if (action === 'matches') {
+        const userId = await resolveUserId(supabase, body);
+        if (!userId) return NextResponse.json({ error: 'Account id or email is required.' }, { status: 400 });
+
+        const limit = Math.min(Math.max(parseInt(body.limit || '60', 10), 1), 100);
+        const rows = await supabase
+            .from('matches')
+            .select('id, user_one_id, user_two_id, created_at, source_key')
+            // The pair is stored sorted, so this account can be on either side.
+            .or(`user_one_id.eq.${userId},user_two_id.eq.${userId}`)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (rows.error) {
+            // The table is missing on an instance that has not run the
+            // migrations. An empty list is a better answer than a 500.
+            if (['42P01', 'PGRST205'].includes(rows.error.code)) {
+                return NextResponse.json({ ok: true, matches: [], schemaReady: false });
+            }
+            return NextResponse.json({ error: rows.error.message }, { status: 500 });
+        }
+
+        const matchRows = rows.data || [];
+        const peerIds = matchRows
+            .map((row) => (row.user_one_id === userId ? row.user_two_id : row.user_one_id))
+            .filter(Boolean);
+
+        if (!peerIds.length) return NextResponse.json({ ok: true, matches: [], schemaReady: true });
+
+        const [peers, conversations] = await Promise.all([
+            supabase
+                .from('users')
+                .select('id, display_name, username, avatar_url, photos, age, location, city, country, verified, verification_status, subscription_tier, last_seen_at, is_seed_profile')
+                .in('id', peerIds),
+            supabase
+                .from('conversations')
+                .select('id, user_one_id, user_two_id, last_message_at')
+                .or(`user_one_id.eq.${userId},user_two_id.eq.${userId}`),
+        ]);
+
+        const peerById = new Map((peers.data || []).map((row) => [row.id, row]));
+        const conversationByPeer = new Map();
+        (conversations.data || []).forEach((row) => {
+            const other = row.user_one_id === userId ? row.user_two_id : row.user_one_id;
+            if (other) conversationByPeer.set(other, row);
+        });
+
+        const matches = matchRows.map((row) => {
+            const peerId = row.user_one_id === userId ? row.user_two_id : row.user_one_id;
+            const peer = peerById.get(peerId);
+            const conversation = conversationByPeer.get(peerId) || null;
+            return {
+                id: row.id,
+                matchedAt: row.created_at,
+                superLike: row.source_key === 'superlike',
+                conversationId: conversation?.id || null,
+                lastMessageAt: conversation?.last_message_at || null,
+                member: peer ? normalizeMember(peer, { canViewPhone: false }) : null,
+            };
+        // A peer whose account was deleted leaves a match with nobody in it.
+        }).filter((match) => match.member);
+
+        return NextResponse.json({ ok: true, matches, schemaReady: true });
     }
 
     if (action === 'account_state') {
@@ -1392,16 +1543,43 @@ export async function POST(request) {
             isSuperLike: action === 'superlike',
             metadata: { score: body.score || null, source: 'member' },
         });
+        /*
+          A like is only half of a match.
+
+          member_likes rows were being written and nothing ever read them back
+          the other way, so a mutual like produced two independent likes and no
+          match. The matches table has existed since 20260703_120 and had never
+          been written to by any code. The matches screen listed every member
+          instead, which is why it never resembled a matches screen.
+
+          So: having recorded this like, look for the reciprocal one.
+        */
+        const match = await recordMatchIfMutual(supabase, actorUserId, memberId, {
+            superLike: action === 'superlike',
+            actorName: body.senderName,
+        });
+
         try {
             await supabase.from('user_notifications').insert({
                 user_id: memberId,
-                type: action,
-                title: action === 'superlike' ? 'New super like' : 'New like',
-                body: `${String(body.senderName || 'Someone').slice(0, 80)} ${action === 'superlike' ? 'super liked' : 'liked'} your profile.`,
+                type: match.matched ? 'match' : action,
+                title: match.matched
+                    ? 'It is a match'
+                    : (action === 'superlike' ? 'New super like' : 'New like'),
+                body: match.matched
+                    ? `You and ${String(body.senderName || 'someone').slice(0, 80)} liked each other. Say hello.`
+                    : `${String(body.senderName || 'Someone').slice(0, 80)} ${action === 'superlike' ? 'super liked' : 'liked'} your profile.`,
                 metadata: { actorUserId },
             });
         } catch {}
-        return NextResponse.json({ ok: true, quota, persisted: !result.error });
+
+        return NextResponse.json({
+            ok: true,
+            quota,
+            persisted: !result.error,
+            matched: match.matched,
+            match: match.peer,
+        });
     }
 
     if (action === 'swipe_pass') {

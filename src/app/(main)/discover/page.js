@@ -11,6 +11,7 @@ import BoostedMembersStrip from '@/components/BoostedMembersStrip';
 import StoriesStrip from '@/components/StoriesStrip';
 import { useAuth } from '@/contexts/AuthContext';
 import { startPolling, POLL } from '@/lib/poll';
+import MatchCelebration from '@/components/MatchCelebration';
 
 const CACHE_KEY = 'gscom_discover_deck_v3';
 const CACHE_LIMIT = 80;
@@ -261,6 +262,8 @@ export default function DiscoverPage() {
     const [loading, setLoading] = useState(true);
     const [direction, setDirection] = useState(null);
     const [notice, setNotice] = useState('');
+    // The peer returned by the like API when it completed a mutual like.
+    const [celebration, setCelebration] = useState(null);
     const [liveStreams, setLiveStreams] = useState([]);
     const [geo, setGeo] = useState(null);
     const [filter, setFilter] = useState('all');
@@ -457,9 +460,22 @@ export default function DiscoverPage() {
             if (result.redirectTo) window.setTimeout(() => router.push(result.redirectTo), 900);
             return;
         }
-        const score = matchScore(current, user);
-        if (score >= 93) addMatch(profile, score);
-        addMessage?.({ type: 'like', sender: 'You', title: `You liked ${current.name}`, body: `${score}% compatibility. Keep interacting to turn this into a stronger match.`, memberId: current.id, senderImage: current.avatarUrl });
+        /*
+          A match is a mutual like, and nothing else.
+
+          This used to read `if (score >= 93) addMatch(...)`, declaring a match
+          from a compatibility score. The other person had never seen the
+          profile, so "matches" were full of people who did not know this
+          account existed, and a real mutual like produced nothing at all.
+
+          result.matched comes from the API, which checks member_likes for the
+          reciprocal row.
+        */
+        if (result?.matched && result.match) {
+            addMatch(profile, matchScore(current, user));
+            setCelebration(result.match);
+        }
+        addMessage?.({ type: 'like', sender: 'You', title: `You liked ${current.name}`, body: result?.matched ? 'You liked each other.' : 'They will see your like.', memberId: current.id, senderImage: current.avatarUrl });
         finishSwipe();
     }
 
@@ -474,9 +490,11 @@ export default function DiscoverPage() {
             if (result.redirectTo) window.setTimeout(() => router.push(result.redirectTo), 900);
             return;
         }
-        const score = Math.min(99, matchScore(current, user) + 5);
-        if (score >= 88) addMatch(profile, score);
-        addMessage?.({ type: 'superlike', sender: 'You', title: `You super liked ${current.name}`, body: `${score}% compatibility. This profile was added to your priority interactions.`, memberId: current.id, senderImage: current.avatarUrl });
+        if (result?.matched && result.match) {
+            addMatch(profile, Math.min(99, matchScore(current, user) + 5));
+            setCelebration(result.match);
+        }
+        addMessage?.({ type: 'superlike', sender: 'You', title: `You super liked ${current.name}`, body: result?.matched ? 'You liked each other.' : 'They will see your super like first.', memberId: current.id, senderImage: current.avatarUrl });
         finishSwipe();
     }
 
@@ -604,6 +622,18 @@ export default function DiscoverPage() {
             </div>
 
             <div className="text-center text-xs text-text-muted">{available.length} compatible profiles left today</div>
+
+            {/*
+              Shown only when the API confirms a reciprocal like. Without it a
+              mutual like just advances to the next card and nobody learns it
+              happened, which is the one moment the whole swipe loop exists to
+              produce.
+            */}
+            <MatchCelebration
+                match={celebration}
+                me={user}
+                onClose={() => setCelebration(null)}
+            />
         </div>
     );
 }

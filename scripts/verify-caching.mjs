@@ -74,10 +74,20 @@ console.log('\nThe screens that shared a payload now share a cache entry');
       which is the hazard of asserting on a call site rather than on an
       outcome — so it follows the indirection instead of demanding one shape.
     */
+    /*
+      matches is deliberately absent.
+
+      It used to request /api/members?per_page=240 and relabel the whole
+      directory, which is exactly the duplicated payload this cache exists for.
+      It now POSTs `action: 'matches'` and reads the matches table, and
+      cachedFetch only caches GETs by URL — a POST body is not part of the key,
+      so caching it would serve one account another's matches.
+
+      The right shape for that screen is a short poll, which is what it does.
+    */
     const screens = [
         ['members', [join('src', 'app', '(main)', 'members', 'page.js'),
                      join('src', 'lib', 'usePagedMembers.js')]],
-        ['matches', [join('src', 'app', '(main)', 'matches', 'page.js')]],
         ['boosted strip', [join('src', 'components', 'BoostedMembersStrip.js')]],
         ['live strip', [join('src', 'components', 'LiveNowStrip.js')]],
     ];
