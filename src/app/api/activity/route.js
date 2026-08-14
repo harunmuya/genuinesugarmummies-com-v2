@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
 import { activeTierId } from '@/lib/packageAccess';
+import { classifySupabaseError } from '@/lib/supabaseError';
 
 const SILVER_PLUS = new Set(['silver', 'gold', 'diamond']);
 
@@ -16,14 +17,27 @@ function canUseActivity(user) {
     return SILVER_PLUS.has(activeTierId(user));
 }
 
+/**
+ * Load the signed-in member.
+ *
+ * The error was discarded here and any failure came back as null, which the
+ * callers reported as "Signed-in user is required." So when Supabase refused
+ * every query for exceeding its egress quota, a signed-in member was told they
+ * were not signed in — on the account screen, while looking at their own
+ * profile. That reads as the session being lost, which is the message that
+ * makes people sign out and try again, or uninstall.
+ *
+ * The error is returned so callers can tell "no such account" from "could not
+ * reach the database".
+ */
 async function getUser(supabase, userId) {
-    if (!userId) return null;
-    const { data } = await supabase
+    if (!userId) return { user: null, error: null };
+    const { data, error } = await supabase
         .from('users')
         .select('id, username, display_name, email, avatar_url, photos, subscription_tier, admin_approved, package_locked, verified')
         .eq('id', userId)
         .maybeSingle();
-    return data || null;
+    return { user: data || null, error: error || null };
 }
 
 function publicUser(user = {}) {
@@ -175,7 +189,12 @@ export async function GET(request) {
         return NextResponse.json({ ok: true, stories: result.data || [] });
     }
 
-    const user = await getUser(supabase, userId);
+    const { user, error: userError } = await getUser(supabase, userId);
+    if (userError) {
+        const problem = classifySupabaseError(userError);
+        return NextResponse.json({ error: problem.message, serviceRestricted: problem.kind === 'quota' },
+            { status: problem.kind === 'quota' ? 503 : 500 });
+    }
     if (!user?.id) return jsonError('Signed-in user is required.', 400);
     const overview = await activityOverview(supabase, user);
     return NextResponse.json({ ok: true, ...overview });
@@ -186,7 +205,12 @@ export async function POST(request) {
     if (!supabase) return jsonError('Supabase admin env missing.', 503);
     const body = await request.json().catch(() => ({}));
     const action = String(body.action || '').trim();
-    const user = await getUser(supabase, body.userId);
+    const { user, error: userError } = await getUser(supabase, body.userId);
+    if (userError) {
+        const problem = classifySupabaseError(userError);
+        return NextResponse.json({ error: problem.message, serviceRestricted: problem.kind === 'quota' },
+            { status: problem.kind === 'quota' ? 503 : 500 });
+    }
     if (!user?.id) return jsonError('Signed-in user is required.', 400);
 
     if (action === 'create_story') {
