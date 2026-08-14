@@ -107,10 +107,43 @@ export function normalizeTierId(value) {
     return DEFAULT_TIERS[tier] ? tier : 'free';
 }
 
+/**
+ * The tier a member is actually entitled to right now.
+ *
+ * Everything else asks this: getUserPackageAccess reads it, canUseFeature acts
+ * on what it returns, and every route gates on that. So an omission here is an
+ * omission everywhere.
+ *
+ * It considered admin_approved and package_locked, and never the expiry date.
+ * The admin screen writes package_expires_at when granting a package, and
+ * nothing in the app had ever read it, so an expired Gold stayed Gold
+ * indefinitely: calls, going live, gifts, voice notes, phone reveal, all of it,
+ * forever, from a package that lapsed months ago.
+ *
+ * A tier past its expiry is free. That is the whole fix, and it belongs here
+ * rather than in each route, because a second gate beside this one is how the
+ * two drift apart.
+ */
 export function activeTierId(user) {
     const tier = normalizeTierId(user?.subscription_tier || user?.subscriptionTier);
     if (tier === 'free') return 'free';
-    return user?.admin_approved && !user?.package_locked ? tier : 'free';
+    if (!user?.admin_approved || user?.package_locked) return 'free';
+
+    /*
+      Both spellings, because this is called with rows straight from the
+      database and with the camelCase objects normalizeMember produces. Reading
+      only one silently grants the paid tier wherever the other is passed, which
+      is the failure this is meant to prevent.
+    */
+    const expiresAt = user?.package_expires_at ?? user?.packageExpiresAt ?? null;
+    if (expiresAt) {
+        const expiry = new Date(expiresAt).getTime();
+        // An unparseable date is treated as no expiry rather than as expired,
+        // so bad data cannot lock a paying member out of what they bought.
+        if (Number.isFinite(expiry) && expiry < Date.now()) return 'free';
+    }
+
+    return tier;
 }
 
 function normalizePackageRow(row, tierId) {

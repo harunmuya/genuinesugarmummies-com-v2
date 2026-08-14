@@ -9,7 +9,7 @@ function jsonError(message, status = 500) {
 
 async function getUser(supabase, userId) {
     if (!userId) return null;
-    const { data } = await supabase.from('users').select('id, display_name, avatar_url, photos, subscription_tier, admin_approved, package_locked').eq('id', userId).maybeSingle();
+    const { data } = await supabase.from('users').select('id, display_name, avatar_url, photos, subscription_tier, admin_approved, package_locked, package_expires_at').eq('id', userId).maybeSingle();
     return data || null;
 }
 
