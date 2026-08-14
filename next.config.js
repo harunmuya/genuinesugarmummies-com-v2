@@ -1,4 +1,30 @@
-﻿/** @type {import('next').NextConfig} */
+﻿/*
+  The Supabase host this deployment actually talks to, taken from the same
+  variable the app itself uses.
+
+  It was hardcoded, and had fallen behind: remotePatterns listed
+  tislsfajzqcctjcrmnlg and rmsvyhfpiytcffjkozje, two projects this deployment
+  no longer uses, and not xiqfrvjasvcwywdyszta, which it does. next/image
+  refuses a host that is not listed, so story media and chat attachments from
+  the live project could not render at all.
+
+  Deriving it means the list cannot drift again, and moving to another Supabase
+  project needs no edit here — changing NEXT_PUBLIC_SUPABASE_URL is enough. The
+  old hosts stay listed so images already stored against them keep working.
+*/
+function supabaseHost() {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        return url ? new URL(url).hostname : null;
+    } catch {
+        // A malformed URL must not take the build down.
+        return null;
+    }
+}
+
+const SUPABASE_HOST = supabaseHost();
+
+/** @type {import('next').NextConfig} */
 const nextConfig = {
     turbopack: {
         root: __dirname,
@@ -22,6 +48,9 @@ const nextConfig = {
                 protocol: 'https',
                 hostname: 'lh3.googleusercontent.com',
             },
+            // Whatever project this deployment is configured for.
+            ...(SUPABASE_HOST ? [{ protocol: 'https', hostname: SUPABASE_HOST }] : []),
+            // Earlier projects, so anything already stored against them still loads.
             {
                 protocol: 'https',
                 hostname: 'tislsfajzqcctjcrmnlg.supabase.co',
@@ -108,7 +137,9 @@ const nextConfig = {
                             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
                             "font-src 'self' https://fonts.gstatic.com",
                             "img-src 'self' data: blob: https:",
-                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com https://tislsfajzqcctjcrmnlg.supabase.co https://rmsvyhfpiytcffjkozje.supabase.co https://xiqfrvjasvcwywdyszta.supabase.co https://t.me",
+                            "connect-src 'self' https://genuinesugarmummies.com https://*.wp.com "
+                                + (SUPABASE_HOST ? `https://${SUPABASE_HOST} wss://${SUPABASE_HOST} ` : '')
+                                + "https://tislsfajzqcctjcrmnlg.supabase.co https://rmsvyhfpiytcffjkozje.supabase.co https://xiqfrvjasvcwywdyszta.supabase.co https://t.me",
                             "frame-src 'self'",
                             "frame-ancestors 'none'",
                             "base-uri 'self'",
