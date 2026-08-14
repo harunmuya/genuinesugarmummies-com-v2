@@ -283,7 +283,27 @@ export default function AdminPage() {
             {error && <div className="rounded-xl p-3 text-sm text-danger bg-danger/10">{error}</div>}
             {notice && <div className="rounded-xl p-3 text-sm text-success bg-success/10">{notice}</div>}
             {loading && <p className="text-sm text-primary font-bold">Loading...</p>}
-            {Object.values(data.tableErrors || {}).filter(Boolean).length > 0 && <div className="rounded-xl p-3 text-xs text-gold bg-amber-100">Some admin tables are missing. Run <b>supabase/migrations/20260625_040_admin_control_packages_verification.sql</b> in Supabase SQL Editor.</div>}
+            {/*
+              Two different faults, two different messages.
+
+              This banner appeared whenever any table query failed, and it always
+              said the schema was missing and named a migration. When the project
+              was restricted for exceeding its egress quota it told the operator
+              to re-run SQL that had been applied months earlier, while the real
+              cause went unmentioned. Restriction is now reported as itself.
+            */}
+            {data.serviceRestricted && (
+                <div className="rounded-xl bg-danger/10 p-3 text-xs text-danger">
+                    <b>Supabase has paused this project.</b> It exceeded the plan quota, so every
+                    query is being refused. Upgrade the plan or wait for the billing period to reset.
+                    Running migrations will not help, and no data has been lost.
+                </div>
+            )}
+            {!data.serviceRestricted && Object.values(data.tableErrors || {}).filter(Boolean).length > 0 && (
+                <div className="rounded-xl bg-amber-100 p-3 text-xs text-gold">
+                    Some admin tables are missing. Run <b>supabase/migrations/20260625_040_admin_control_packages_verification.sql</b> in Supabase SQL Editor.
+                </div>
+            )}
 
             {activeTab === 'users' && (
                 <section className="space-y-3">

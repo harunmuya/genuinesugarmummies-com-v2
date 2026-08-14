@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
 import { emailHtml, sendAndLogEmail } from '@/lib/email';
 import { hashPassword, verifyPassword, createResetCode, hashResetCode } from '@/lib/security';
 import { activeTierId, dailyLimitForFeature, getPackageTier } from '@/lib/packageAccess';
+import { classifySupabaseError } from '@/lib/supabaseError';
 
 /*
   The column list behind the member directory. It has to stay a plain list of
@@ -681,13 +682,25 @@ export async function GET(request) {
     }
 
     if (result.error) {
-        console.error('Members API error:', result.error);
+        /*
+          setupRequired was set on every error here, so a project restricted for
+          exceeding its egress quota reported that its schema was missing and
+          named a migration to run. That migration had been applied months
+          earlier. The message sent people to re-run SQL against a healthy
+          database while the real cause, a billing limit, went unmentioned.
+        */
+        const problem = classifySupabaseError(result.error);
+        console.error('Members API error:', problem.kind, problem.actionable, result.error);
         return NextResponse.json({
             members: [],
             count: 0,
-            setupRequired: true,
-            error: result.error.message || 'Unable to load members.',
-        }, { status: 500 });
+            // Only a genuinely absent schema should send anyone to the
+            // migrations folder.
+            setupRequired: problem.kind === 'schema',
+            serviceRestricted: problem.kind === 'quota',
+            error: problem.message,
+        // 503 for a restriction: it is temporary and not this app's fault.
+        }, { status: problem.kind === 'quota' ? 503 : 500 });
     }
 
     const rows = (result.data || []).filter((member) => member.is_banned !== true && member.is_suspended !== true);

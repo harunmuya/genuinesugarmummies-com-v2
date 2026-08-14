@@ -61,7 +61,17 @@ export function usePagedMembers(baseQuery, { perPage = PER_PAGE, enabled = true 
             }
 
             setSchemaReady(data.schemaReady !== false && !data.setupRequired);
+
+            /*
+              The API distinguishes a restricted project from a broken one, so
+              pass its wording through rather than flattening everything to
+              "unavailable". A member seeing that assumes the app is broken and
+              their account is gone; the restriction message says the pause is
+              temporary and their account is safe, which is true and is the
+              difference between waiting and uninstalling.
+            */
             if (data.error) setError(data.error); else setError('');
+            if (data.serviceRestricted) setHasMore(false);
 
             const incoming = data.members || [];
             if (incoming.length === 0) {

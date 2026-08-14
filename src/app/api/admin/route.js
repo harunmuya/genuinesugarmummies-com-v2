@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
 import { emailHtml, sendAndLogEmail } from '@/lib/email';
+import { isMissingSchema, isQuotaRestricted } from '@/lib/supabaseError';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@genuinesugarmummies.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@2026!';
@@ -657,21 +658,33 @@ export async function GET(request) {
         walletTransactions: walletRows,
         giftCatalog: giftCatalog.data,
         logs: logs.data,
+        /*
+          Classified, not raw. The admin screen showed "Some admin tables are
+          missing. Run <migration>" whenever any of these was set, so a project
+          restricted for exceeding its egress quota reported a missing schema
+          and named a migration that had been applied months earlier.
+        */
+        serviceRestricted: [
+            users.error, messages.error, gifts.error, packageRequests.error,
+            tickets.error, broadcasts.error, limits.error, callRequests.error,
+            ticketResponses.error, notifications.error, emailOutbox.error,
+            walletTransactions.error,
+        ].some(isQuotaRestricted),
         tableErrors: {
-            users: users.error,
-            messages: messages.error,
-            gifts: gifts.error,
-            packageRequests: packageRequests.error,
-            tickets: tickets.error,
-            broadcasts: broadcasts.error,
-            limits: limits.error,
-            callRequests: callRequests.error,
-            ticketResponses: ticketResponses.error,
-            notifications: notifications.error,
-            emailOutbox: emailOutbox.error,
-            walletTransactions: walletTransactions.error,
-            giftCatalog: giftCatalog.error,
-            logs: logs.error,
+            users: isMissingSchema(users.error) ? users.error : null,
+            messages: isMissingSchema(messages.error) ? messages.error : null,
+            gifts: isMissingSchema(gifts.error) ? gifts.error : null,
+            packageRequests: isMissingSchema(packageRequests.error) ? packageRequests.error : null,
+            tickets: isMissingSchema(tickets.error) ? tickets.error : null,
+            broadcasts: isMissingSchema(broadcasts.error) ? broadcasts.error : null,
+            limits: isMissingSchema(limits.error) ? limits.error : null,
+            callRequests: isMissingSchema(callRequests.error) ? callRequests.error : null,
+            ticketResponses: isMissingSchema(ticketResponses.error) ? ticketResponses.error : null,
+            notifications: isMissingSchema(notifications.error) ? notifications.error : null,
+            emailOutbox: isMissingSchema(emailOutbox.error) ? emailOutbox.error : null,
+            walletTransactions: isMissingSchema(walletTransactions.error) ? walletTransactions.error : null,
+            giftCatalog: isMissingSchema(giftCatalog.error) ? giftCatalog.error : null,
+            logs: isMissingSchema(logs.error) ? logs.error : null,
         },
     });
 }
