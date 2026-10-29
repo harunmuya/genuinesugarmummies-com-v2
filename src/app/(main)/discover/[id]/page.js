@@ -121,7 +121,15 @@ export default function ProfileDetailPage({ params }) {
     const handleShare = async () => {
         if (!profile) return;
         if (guest || !user) { router.push('/auth/login'); return; }
-        const url = `${window.location.origin}/discover/${profile.wpId}`;
+        const url = (() => {
+            try {
+                const profileUrl = new URL(profile.link);
+                if (profileUrl.hostname === 'genuinesugarmummies.com' || profileUrl.hostname === 'www.genuinesugarmummies.com') {
+                    return profileUrl.href;
+                }
+            } catch { }
+            return `https://genuinesugarmummies.com/?p=${encodeURIComponent(profile.wpId)}`;
+        })();
         if (navigator.share) {
             try { await navigator.share({ title: profile.name, text: `Check out ${profile.name} on GenuineSugarMummies.com`, url }); } catch { }
         } else {
