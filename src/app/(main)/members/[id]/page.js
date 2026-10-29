@@ -346,10 +346,10 @@ export default function MemberProfilePage({ params }) {
             <div className="px-4 -mt-4 relative z-10 space-y-4">
                 <section className="grid grid-cols-6 gap-2">
                     <button onClick={toggleFollow} className={`h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${following ? 'bg-success' : 'gradient-primary'}`} aria-label="Follow"><UserPlus size={18} /></button>
-                    <Link href={`/messages/${member.id}`} className="h-12 rounded-2xl flex items-center justify-center bg-secondary text-white shadow-lg" aria-label="Message"><MessageCircle size={18} /></Link>
+                    <Link href={`/messages/${member.id}`} className="h-12 rounded-2xl flex items-center justify-center gradient-primary text-white shadow-lg" aria-label="Message"><MessageCircle size={18} /></Link>
                     <button onClick={() => sendGift((wallet.giftCatalog || [])[0] || GIFTS[0])} className="h-12 rounded-2xl flex items-center justify-center bg-amber-500 text-white shadow-lg" aria-label="Send gift"><Gift size={18} /></button>
                     {!isSelfProfile && <Link href={`/calls/${member.id}?type=voice`} className="h-12 rounded-2xl flex items-center justify-center bg-sky-600 text-white shadow-lg" aria-label="Voice call"><PhoneCall size={18} /></Link>}
-                    {!isSelfProfile && <Link href={`/calls/${member.id}?type=video`} className="h-12 rounded-2xl flex items-center justify-center bg-teal-600 text-white shadow-lg" aria-label="Video call"><Video size={18} /></Link>}
+                    {!isSelfProfile && <Link href={`/calls/${member.id}?type=video`} className="h-12 rounded-2xl flex items-center justify-center gradient-primary text-white shadow-lg" aria-label="Video call"><Video size={18} /></Link>}
                     <Link href="/packages" className="h-12 rounded-2xl flex items-center justify-center bg-gray-900 text-white shadow-lg" aria-label="Packages"><Lock size={18} /></Link>
                 </section>
 

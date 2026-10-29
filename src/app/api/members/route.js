@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, createResetCode, hashResetCode } from '@/
 import { activeTierId, dailyLimitForFeature, getPackageTier } from '@/lib/packageAccess';
 import { classifySupabaseError } from '@/lib/supabaseError';
 import { checkThrottle, recordAttempt } from '@/lib/authThrottle';
+import { clearMemberSession, getMemberSessionUserId, setMemberSession } from '@/lib/memberSession';
 
 /*
   The column list behind the member directory. It has to stay a plain list of
@@ -152,12 +153,8 @@ function normalizeSettings(row = {}) {
     };
 }
 
-async function resolveUserId(supabase, body) {
-    if (body.memberId || body.userId) return body.memberId || body.userId;
-    const email = String(body.email || '').trim().toLowerCase();
-    if (!email) return null;
-    const { data } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-    return data?.id || null;
+function resolveUserId(request) {
+    return getMemberSessionUserId(request);
 }
 
 async function getUserSettings(supabase, userId) {
@@ -339,7 +336,9 @@ function activeBoost(member) {
 function isUnlockedViewer(viewer) {
     if (!viewer) return false;
     const tier = String(viewer.subscription_tier || '').toLowerCase();
-    return Boolean(viewer.admin_approved && !viewer.package_locked && UNLOCKED_PLANS.has(tier));
+    const expiresAt = viewer.package_expires_at ? new Date(viewer.package_expires_at).getTime() : null;
+    const unexpired = expiresAt === null || !Number.isFinite(expiresAt) || expiresAt >= Date.now();
+    return Boolean(viewer.admin_approved && !viewer.package_locked && unexpired && UNLOCKED_PLANS.has(tier));
 }
 
 async function getUserPlan(supabase, userId) {
@@ -534,7 +533,7 @@ function coarseCoordinate(value) {
     return Math.round(number * 100) / 100;
 }
 
-function normalizeMember(member, { canViewPhone = false, includeEmail = false } = {}) {
+function normalizeMember(member, { canViewPhone = false, includeEmail = false, showAge = true, showOnline = true } = {}) {
     const phone = member.phone_number || member.phone || '';
     const verified = Boolean(member.verified || member.verification_status === 'verified');
     const lastSeenAt = livelySeedTime(member);
@@ -550,7 +549,7 @@ function normalizeMember(member, { canViewPhone = false, includeEmail = false } 
         avatarUrl: getPrimaryPhoto(member),
         photos: Array.isArray(member.photos) ? member.photos : [],
         bio: member.description || member.bio || '',
-        age: member.age || null,
+        age: showAge ? member.age || null : null,
         location: member.location || member.city || member.country || '',
         country: member.country || '',
         city: member.city || '',
@@ -604,9 +603,21 @@ function normalizeMember(member, { canViewPhone = false, includeEmail = false } 
         boostExpiresAt: member.boost_expires_at || null,
         boostScore: isBoosted ? Number(member.boost_score || 0) : 0,
         createdAt: member.created_at || null,
-        lastSeenAt,
-        isOnline,
+        lastSeenAt: showOnline ? lastSeenAt : null,
+        isOnline: showOnline && isOnline,
     };
+}
+
+async function memberPrivacySettings(supabase, userIds) {
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!ids.length) return new Map();
+    try {
+        const { data, error } = await supabase.from('user_settings').select('user_id, is_public, show_age, show_online').in('user_id', ids);
+        if (error) return new Map();
+        return new Map((data || []).map((row) => [row.user_id, row]));
+    } catch {
+        return new Map();
+    }
 }
 
 function applyFilters(query, searchParams, { fullSchema, directLookup = false }) {
@@ -695,13 +706,13 @@ function mixedMemberRows(rows) {
     return [...boosted, ...mixed];
 }
 
-async function getViewerUnlock(supabase, searchParams) {
-    const viewerId = searchParams.get('viewer_id');
+async function getViewerUnlock(supabase, request) {
+    const viewerId = getMemberSessionUserId(request);
     if (!viewerId) return false;
 
     const { data } = await supabase
         .from('users')
-        .select('subscription_tier, admin_approved, package_locked')
+        .select('subscription_tier, admin_approved, package_locked, package_expires_at')
         .eq('id', viewerId)
         .maybeSingle();
 
@@ -721,9 +732,11 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const privateLookup = Boolean(searchParams.get('viewer_id') || searchParams.get('id') || searchParams.get('username'));
-    const cacheControl = privateLookup ? 'private, max-age=20' : 'public, s-maxage=60, stale-while-revalidate=300';
-    const canViewPhone = await getViewerUnlock(supabase, searchParams);
+    const privateLookup = Boolean(getMemberSessionUserId(request) || searchParams.get('id') || searchParams.get('username'));
+    const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
+    const perPage = Math.min(Math.max(parseInt(searchParams.get('per_page') || '240', 10), 1), 240);
+    const cacheControl = privateLookup ? 'private, no-store' : 'public, s-maxage=15, stale-while-revalidate=15';
+    const canViewPhone = await getViewerUnlock(supabase, request);
 
     let fullSchema = true;
     let result = await fetchMembers(supabase, searchParams, { fullSchema });
@@ -767,12 +780,26 @@ export async function GET(request) {
 
     const rows = (result.data || []).filter((member) => member.is_banned !== true && member.is_suspended !== true);
     const directLookup = Boolean(searchParams.get('id') || searchParams.get('username'));
-    const rowsWithPhotos = rows.filter(hasProfilePhoto);
-    const publicRows = directLookup ? rows : mixedMemberRows(rowsWithPhotos.length ? rowsWithPhotos : rows);
+    const privacy = await memberPrivacySettings(supabase, rows.map((member) => member.id));
+    const viewerId = getMemberSessionUserId(request);
+    const visibleRows = rows.filter((member) => (member.show_in_public !== false
+        && privacy.get(member.id)?.is_public !== false) || member.id === viewerId);
+    const rowsWithPhotos = visibleRows.filter(hasProfilePhoto);
+    const publicRows = directLookup ? visibleRows : mixedMemberRows(rowsWithPhotos.length ? rowsWithPhotos : visibleRows);
 
     return NextResponse.json({
-        members: publicRows.map((member) => normalizeMember(member, { canViewPhone, includeEmail: false })),
+        members: publicRows.map((member) => {
+            const settings = privacy.get(member.id) || {};
+            return normalizeMember(member, {
+                canViewPhone,
+                includeEmail: false,
+                showAge: settings.show_age !== false,
+                showOnline: settings.show_online !== false,
+            });
+        }),
         count: publicRows.length,
+        page,
+        hasMore: !directLookup && (result.data || []).length === perPage,
         schemaReady: fullSchema || (result.count || 0) > 0,
     }, {
         headers: { 'Cache-Control': cacheControl },
@@ -816,7 +843,7 @@ function makeUsername(value, fallback = 'member') {
         .replace(/@.*/, '')
         .replace(/[^a-z0-9_]+/g, '_')
         .replace(/^_+|_+$/g, '')
-        .slice(0, 24);
+        .slice(0, 20);
     return raw || 'member';
 }
 
@@ -824,7 +851,7 @@ async function uniqueUsername(supabase, desired, existingId = null) {
     const base = makeUsername(desired);
     for (let index = 0; index < 30; index++) {
         const suffix = index === 0 ? '' : `_${index + 1}`;
-        const candidate = `${base.slice(0, Math.max(3, 24 - suffix.length))}${suffix}`;
+        const candidate = `${base.slice(0, Math.max(3, 20 - suffix.length))}${suffix}`;
         const result = await supabase
             .from('users')
             .select('id')
@@ -861,7 +888,7 @@ function accountPayload(body, { fullSchema = true } = {}) {
         phone,
         phone_number: phone,
         profile_label: profileLabel,
-        subscription_tier: String(body.subscription_tier || 'free').slice(0, 40),
+        subscription_tier: 'free',
         verified: false,
         verification_status: body.verification_submitted_at ? 'pending_admin' : 'unsubmitted',
         show_in_public: body.show_in_public === false ? false : profileComplete,
@@ -925,27 +952,35 @@ async function incrementUserCounter(supabase, memberId, column) {
 }
 
 export async function POST(request) {
+    const body = await request.json().catch(() => ({}));
+    const action = body.action;
+
+    if (action === 'logout') {
+        const response = NextResponse.json({ ok: true });
+        clearMemberSession(response);
+        return response;
+    }
+
     const supabase = createServerSupabaseClient({ admin: true });
     if (!supabase) {
         return NextResponse.json({ error: 'Supabase admin environment variables are not configured.' }, { status: 503 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const action = body.action;
     const memberId = body.memberId;
+    const authenticatedUserId = getMemberSessionUserId(request);
     const actorKey = String(body.actorKey || 'guest').slice(0, 120);
 
     if (action === 'account_settings') {
-        const userId = await resolveUserId(supabase, body);
-        if (!userId) return NextResponse.json({ settings: normalizeSettings({}) });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to load account settings.' }, { status: 401 });
         const settingsResult = await getUserSettings(supabase, userId);
         if (settingsResult?.error) return NextResponse.json({ error: 'User settings table is missing. Run supabase/migrations/20260626_080_user_alert_settings.sql.' }, { status: 500 });
         return NextResponse.json({ ok: true, settings: settingsResult.data || normalizeSettings({}) });
     }
 
     if (action === 'update_settings') {
-        const userId = await resolveUserId(supabase, body);
-        if (!userId) return NextResponse.json({ error: 'Account id or email is required.' }, { status: 400 });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to update account settings.' }, { status: 401 });
         const payload = { user_id: userId, ...settingsPayload(body) };
         const result = await supabase
             .from('user_settings')
@@ -953,21 +988,26 @@ export async function POST(request) {
             .select('*')
             .maybeSingle();
         if (result.error) return NextResponse.json({ error: 'User settings table is missing. Run supabase/migrations/20260626_080_user_alert_settings.sql.' }, { status: 500 });
+        const visibility = await supabase.from('users').update({ show_in_public: result.data?.is_public !== false }).eq('id', userId).select('id').maybeSingle();
+        if (visibility.error) return NextResponse.json({ error: 'Settings were saved, but profile visibility did not update. Please retry.' }, { status: 500 });
         return NextResponse.json({ ok: true, settings: normalizeSettings(result.data) });
     }
 
     if (action === 'push_subscription') {
-        const userId = await resolveUserId(supabase, body);
-        if (!userId) return NextResponse.json({ error: 'Account id or email is required.' }, { status: 400 });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to enable notifications.' }, { status: 401 });
         const subscription = body.subscription || {};
         const endpoint = String(subscription.endpoint || body.endpoint || '').slice(0, 1000);
         if (!endpoint) return NextResponse.json({ error: 'Push subscription endpoint is required.' }, { status: 400 });
         const keys = subscription.keys || {};
+        const p256dh = String(keys.p256dh || body.p256dh || '').slice(0, 500);
+        const auth = String(keys.auth || body.auth || '').slice(0, 500);
+        if (!p256dh || !auth) return NextResponse.json({ error: 'A valid browser push subscription is required.' }, { status: 400 });
         const payload = {
             user_id: userId,
             endpoint,
-            p256dh: String(keys.p256dh || body.p256dh || '').slice(0, 500),
-            auth: String(keys.auth || body.auth || '').slice(0, 500),
+            p256dh,
+            auth,
             platform: String(body.platform || 'web').slice(0, 80),
             permission: String(body.permission || 'granted').slice(0, 40),
             user_agent: String(body.userAgent || '').slice(0, 500),
@@ -992,8 +1032,8 @@ export async function POST(request) {
       unreachable, so each standing reminder could only ever be posted once.
     */
     if (action === 'mark_inbox_read') {
-        const userId = await resolveUserId(supabase, body);
-        if (!userId) return NextResponse.json({ ok: true, updated: 0 });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to update your inbox.' }, { status: 401 });
 
         let query = supabase
             .from('user_notifications')
@@ -1018,13 +1058,8 @@ export async function POST(request) {
     }
 
     if (action === 'account_inbox') {
-        const email = String(body.email || '').trim().toLowerCase();
-        let userId = body.memberId || body.userId || null;
-        if (!userId && email) {
-            const { data: found } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-            userId = found?.id || null;
-        }
-        if (!userId) return NextResponse.json({ notifications: [] });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to load your inbox.' }, { status: 401 });
         let result = await supabase
             .from('user_notifications')
             .select('id, type, title, body, read, metadata, created_at')
@@ -1053,8 +1088,8 @@ export async function POST(request) {
       them so the screen can show a last message and go straight to the thread.
     */
     if (action === 'matches') {
-        const userId = await resolveUserId(supabase, body);
-        if (!userId) return NextResponse.json({ error: 'Account id or email is required.' }, { status: 400 });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to load your matches.' }, { status: 401 });
 
         const limit = Math.min(Math.max(parseInt(body.limit || '60', 10), 1), 100);
         const rows = await supabase
@@ -1092,6 +1127,7 @@ export async function POST(request) {
                 .or(`user_one_id.eq.${userId},user_two_id.eq.${userId}`),
         ]);
 
+        const privacy = await memberPrivacySettings(supabase, peers.data?.map((row) => row.id) || []);
         const peerById = new Map((peers.data || []).map((row) => [row.id, row]));
         const conversationByPeer = new Map();
         (conversations.data || []).forEach((row) => {
@@ -1109,7 +1145,11 @@ export async function POST(request) {
                 superLike: row.source_key === 'superlike',
                 conversationId: conversation?.id || null,
                 lastMessageAt: conversation?.last_message_at || null,
-                member: peer ? normalizeMember(peer, { canViewPhone: false }) : null,
+                member: peer ? normalizeMember(peer, {
+                    canViewPhone: false,
+                    showAge: privacy.get(peerId)?.show_age !== false,
+                    showOnline: privacy.get(peerId)?.show_online !== false,
+                }) : null,
             };
         // A peer whose account was deleted leaves a match with nobody in it.
         }).filter((match) => match.member);
@@ -1118,8 +1158,8 @@ export async function POST(request) {
     }
 
     if (action === 'account_state') {
-        const userId = await resolveUserId(supabase, body);
-        if (!userId) return NextResponse.json({ ok: true, likes: [], matches: [], passes: [], saved: [], usage: {} });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Sign in to load account activity.' }, { status: 401 });
         const today = new Date().toISOString().slice(0, 10);
         const [interactionsResult, savesResult, usageResult] = await Promise.all([
             supabase
@@ -1169,7 +1209,7 @@ export async function POST(request) {
     }
 
     if (action === 'account_reminders') {
-        const userId = await resolveUserId(supabase, body);
+        const userId = resolveUserId(request);
         if (!userId) return NextResponse.json({ ok: true, created: 0 });
         const { data: account } = await supabase
             .from('users')
@@ -1194,21 +1234,16 @@ export async function POST(request) {
         if (!paid && await notifyOnceDaily(supabase, userId, {
             type: 'package',
             title: 'Unlock premium GS features',
-            body: 'Basic unlocks limited messaging and one chosen Telegram direct connection. Silver is recommended for phone reveal, stronger messaging, gifts, and priority support.',
+            body: 'Review the current package limits and prices in the app. A local introduction request is a separate service; availability and member consent are not guaranteed.',
         })) created++;
         return NextResponse.json({ ok: true, created });
     }
 
     if (action === 'refresh_account') {
-        const email = String(body.email || '').trim().toLowerCase();
-        const userId = body.memberId || body.userId || null;
-        if (!email && !userId) return NextResponse.json({ error: 'Account id or email is required.' }, { status: 400 });
+        const userId = resolveUserId(request);
+        if (!userId) return NextResponse.json({ error: 'Your sign-in has expired. Please sign in again.' }, { status: 401 });
 
-        let query = supabase.from('users').select(FULL_MEMBER_FIELDS);
-        if (userId && email) query = query.eq('id', userId).eq('email', email);
-        else if (userId) query = query.eq('id', userId);
-        else query = query.eq('email', email);
-        const result = await query.maybeSingle();
+        const result = await supabase.from('users').select(FULL_MEMBER_FIELDS).eq('id', userId).maybeSingle();
 
         if (result.error && ['42703', 'PGRST204'].includes(result.error.code)) {
             return NextResponse.json({ error: 'Latest account fields are missing. Run the auth/package SQL migration.' }, { status: 500 });
@@ -1220,7 +1255,7 @@ export async function POST(request) {
     }
 
     if (action === 'heartbeat') {
-        const userId = await resolveUserId(supabase, body);
+        const userId = resolveUserId(request);
         if (!userId) return NextResponse.json({ ok: true, updated: false });
         const now = new Date().toISOString();
         const result = await supabase
@@ -1267,12 +1302,15 @@ export async function POST(request) {
 
         const title = 'Reset your Genuine Sugar Mummies password';
         const text = `Your password reset code is ${code}. It expires in 20 minutes.`;
-        await sendAndLogEmail(supabase, {
+        const emailResult = await sendAndLogEmail(supabase, {
             to: email,
             subject: title,
             text,
             html: emailHtml(title, `<p>Use this reset code:</p><h2 style="letter-spacing:4px">${code}</h2><p>This code expires in 20 minutes.</p>`),
         });
+        if (!emailResult.ok) {
+            return NextResponse.json({ error: 'We could not deliver the reset email right now. Check the address and try again later, or contact support.' }, { status: 503 });
+        }
         try { await supabase.from('admin_logs').insert({ action: 'password_reset_requested', details: { userId: account.id, email } }); } catch {}
         return NextResponse.json({ ok: true, message: 'Reset code sent to your email.' });
     }
@@ -1319,7 +1357,9 @@ export async function POST(request) {
         if (updated.error) return NextResponse.json({ error: updated.error.message }, { status: 500 });
         await supabase.from('password_reset_codes').update({ used_at: new Date().toISOString() }).eq('id', codeResult.data.id);
         try { await supabase.from('user_notifications').insert({ user_id: codeResult.data.user_id, type: 'security', title: 'Password changed', body: 'Your password was reset successfully.' }); } catch {}
-        return NextResponse.json({ ok: true, member: normalizeMember(updated.data, { canViewPhone: true, includeEmail: true }) });
+        const response = NextResponse.json({ ok: true, member: normalizeMember(updated.data, { canViewPhone: true, includeEmail: true }) });
+        if (!setMemberSession(response, updated.data.id)) return NextResponse.json({ error: 'Account session signing is not configured on the server.' }, { status: 503 });
+        return response;
     }
     if (action === 'login_account') {
         const email = String(body.email || '').trim().toLowerCase();
@@ -1370,38 +1410,60 @@ export async function POST(request) {
         // times and then gets it right is not left locked out.
         await recordAttempt(supabase, 'login', email, true);
         await supabase.from('users').update({ last_seen_at: new Date().toISOString(), last_seen: new Date().toISOString() }).eq('id', result.data.id);
-        return NextResponse.json({ ok: true, member: normalizeMember(result.data, { canViewPhone: true, includeEmail: true }) });
+        const response = NextResponse.json({ ok: true, member: normalizeMember(result.data, { canViewPhone: true, includeEmail: true }) });
+        if (!setMemberSession(response, result.data.id)) return NextResponse.json({ error: 'Account session signing is not configured on the server.' }, { status: 503 });
+        return response;
+    }
+
+    if (action === 'oauth_account') {
+        return NextResponse.json({ error: 'Social sign-in is not enabled for this app. Use email and password.' }, { status: 410 });
     }
 
     if (action === 'upsert_account') {
         const email = String(body.email || '').trim().toLowerCase();
         if (!email || !email.includes('@')) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
-        if (body.password && !body.id) {
-            const completionError = accountCompletionError(body);
-            if (completionError) return NextResponse.json({ error: completionError }, { status: 400 });
+        if (authenticatedUserId && body.id && String(body.id) !== authenticatedUserId) {
+            return NextResponse.json({ error: 'You can only update the account signed in on this device.' }, { status: 403 });
         }
 
         let existingAccount = await supabase
             .from('users')
-            .select('id, username, password_hash, avatar_url, photos, verified, verification_status, admin_approved, package_locked, subscription_tier, package_expires_at, verification_selfie_url, verification_document_url, verification_phone, verification_submitted_at, auth_user_id')
+            .select('id, username, password_hash, avatar_url, photos, profile_label, member_category, looking_for, show_in_public, verified, verification_status, admin_approved, package_locked, subscription_tier, package_expires_at, verification_selfie_url, verification_document_url, verification_phone, verification_submitted_at, auth_user_id')
             .eq('email', email)
             .maybeSingle();
         if (existingAccount.error && ['42703', 'PGRST204'].includes(existingAccount.error.code)) {
             existingAccount = await supabase
                 .from('users')
-                .select('id, password_hash, avatar_url, photos, verified, verification_status, admin_approved, package_locked, subscription_tier, package_expires_at, verification_selfie_url, verification_document_url, verification_phone, verification_submitted_at')
+                .select('id, password_hash, avatar_url, photos, profile_label, member_category, looking_for, show_in_public, verified, verification_status, admin_approved, package_locked, subscription_tier, package_expires_at, verification_selfie_url, verification_document_url, verification_phone, verification_submitted_at')
                 .eq('email', email)
                 .maybeSingle();
         }
         if (existingAccount.error && existingAccount.error.code !== 'PGRST116') return NextResponse.json({ error: existingAccount.error.message }, { status: 500 });
-        const isProfileUpdate = Boolean(existingAccount.data?.id && body.id === existingAccount.data.id && !body.password);
+        const isProfileUpdate = Boolean(existingAccount.data?.id && authenticatedUserId === existingAccount.data.id && !body.password);
+        if (existingAccount.data?.id && !isProfileUpdate) {
+            return NextResponse.json({ error: 'An account already exists for this email. Sign in or use password reset to regain access.' }, { status: 409 });
+        }
+        if (authenticatedUserId && !isProfileUpdate) {
+            return NextResponse.json({ error: 'Sign out before creating a different account.' }, { status: 409 });
+        }
         if (!isProfileUpdate) {
             if (String(body.password || '').length < 6) return NextResponse.json({ error: 'Create a password with at least 6 characters.' }, { status: 400 });
             if (existingAccount.data?.password_hash) return NextResponse.json({ error: 'This email already has an account. Please sign in.' }, { status: 409 });
             const completionError = accountCompletionError(body);
             if (completionError) return NextResponse.json({ error: completionError }, { status: 400 });
+            const requestedUsername = String(body.username || '').trim().toLowerCase();
+            if (!/^[a-z0-9_]{3,20}$/.test(requestedUsername)) return NextResponse.json({ error: 'Username must be 3 to 20 letters, numbers, or underscores.' }, { status: 400 });
         }
         let payload = accountPayload(body, { fullSchema: true });
+        if (isProfileUpdate) {
+            const fixedProfileType = existingAccount.data.profile_label || existingAccount.data.member_category;
+            if (fixedProfileType) {
+                payload.profile_label = fixedProfileType;
+                payload.member_category = fixedProfileType;
+            }
+            payload.show_in_public = existingAccount.data.show_in_public !== false;
+            if (existingAccount.data.looking_for && !body.looking_for) payload.looking_for = existingAccount.data.looking_for;
+        }
         payload.username = await uniqueUsername(supabase, body.username || existingAccount.data?.username || payload.username || body.display_name || email, existingAccount.data?.id || null);
         const oldProfilePhoto = getPrimaryPhoto(existingAccount.data || {});
         const newProfilePhoto = getPrimaryPhoto(payload);
@@ -1474,7 +1536,11 @@ export async function POST(request) {
             try { await supabase.from('user_notifications').insert({ user_id: result.data.id, type: 'welcome', title: welcomeTitle, body: welcomeBody }); } catch {}
             await sendAndLogEmail(supabase, { to: email, subject: welcomeTitle, text: welcomeBody, html: emailHtml(welcomeTitle, welcomeBody) });
         }
-        return NextResponse.json({ ok: true, member: normalizeMember({ ...payload, ...(result.data || {}) }, { canViewPhone: true, includeEmail: true }), createdAccount });
+        const response = NextResponse.json({ ok: true, member: normalizeMember({ ...payload, ...(result.data || {}) }, { canViewPhone: true, includeEmail: true }), createdAccount });
+        if (createdAccount && !setMemberSession(response, result.data.id)) {
+            return NextResponse.json({ error: 'The account was created, but secure sign-in is not configured. Contact support before trying again.' }, { status: 503 });
+        }
+        return response;
     }
 
     if (action === 'oauth_account') {
@@ -1522,11 +1588,11 @@ export async function POST(request) {
     }
 
     if (action === 'submit_verification') {
-        const email = String(body.email || '').trim().toLowerCase();
+        const verificationUserId = authenticatedUserId;
         const selfie = String(body.verification_selfie_url || '').trim();
         const documentUrl = String(body.verification_document_url || '').trim();
         const phone = String(body.verification_phone || body.phone_number || body.phone || '').trim();
-        if (!email && !memberId) return NextResponse.json({ error: 'Sign in before submitting verification.' }, { status: 400 });
+        if (!verificationUserId) return NextResponse.json({ error: 'Sign in before submitting verification.' }, { status: 401 });
         if (!selfie || !documentUrl || !phone) return NextResponse.json({ error: 'Selfie, ID/passport, and phone number are required.' }, { status: 400 });
 
         const patch = {
@@ -1542,19 +1608,15 @@ export async function POST(request) {
             verification_rejection_reason: '',
         };
 
-        let result;
-        if (memberId) result = await supabase.from('users').update(patch).eq('id', memberId).select(FULL_MEMBER_FIELDS).maybeSingle();
-        else result = await supabase.from('users').update(patch).eq('email', email).select(FULL_MEMBER_FIELDS).maybeSingle();
+        let result = await supabase.from('users').update(patch).eq('id', verificationUserId).select(FULL_MEMBER_FIELDS).maybeSingle();
 
         if (result.error && ['42703', 'PGRST204'].includes(result.error.code)) {
             const fallbackPatch = { verification_status: 'pending_admin', verified: false, phone_number: phone.slice(0, 40), phone: phone.slice(0, 40) };
-            result = memberId
-                ? await supabase.from('users').update(fallbackPatch).eq('id', memberId).select(BASIC_MEMBER_FIELDS).maybeSingle()
-                : await supabase.from('users').update(fallbackPatch).eq('email', email).select(BASIC_MEMBER_FIELDS).maybeSingle();
+            result = await supabase.from('users').update(fallbackPatch).eq('id', verificationUserId).select(BASIC_MEMBER_FIELDS).maybeSingle();
         }
 
         if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
-        try { await supabase.from('admin_logs').insert({ action: 'verification_submitted', details: { userId: memberId || result.data?.id || null, email } }); } catch {}
+        try { await supabase.from('admin_logs').insert({ action: 'verification_submitted', details: { userId: verificationUserId } }); } catch {}
         return NextResponse.json({ ok: true, member: normalizeMember(result.data || patch, { canViewPhone: true, includeEmail: true }) });
     }
 
@@ -1631,7 +1693,7 @@ export async function POST(request) {
                 text: autoResponse.body,
                 html: emailHtml(autoResponse.title, autoResponse.body, {
                     preview: autoResponse.shortStatus,
-                    actionUrl: 'https://genuinesugarmummies.com/alerts',
+                    actionUrl: 'https://app.genuinesugarmummies.com/alerts',
                     actionLabel: 'Open GS Inbox',
                 }),
             });
@@ -1641,34 +1703,70 @@ export async function POST(request) {
     }
 
     if (action === 'request_package') {
+        if (!authenticatedUserId) return NextResponse.json({ error: 'Sign in before submitting a package payment.' }, { status: 401 });
         const tier = String(body.tier || 'basic').toLowerCase();
-        const amount = tier === 'gold' ? 3550 : tier === 'silver' ? 1200 : 650;
-        const paymentReference = String(body.payment_reference || '').trim();
-        if (paymentReference.length < 3) return NextResponse.json({ error: 'Payment transaction ID is required before admin can approve a package.' }, { status: 400 });
+        const selectedTier = ['basic', 'silver', 'gold'].includes(tier) ? tier : null;
+        if (!selectedTier) return NextResponse.json({ error: 'Choose an available package.' }, { status: 400 });
+        const packageTier = await getPackageTier(supabase, selectedTier);
+        const localOffer = String(body.offer_code || '').toUpperCase() === 'LOCAL650';
+        const amount = localOffer ? 650 : selectedTier === 'basic' ? 750 : Number(packageTier.price_ksh || 0);
+        if (!Number.isFinite(amount) || amount < 1) return NextResponse.json({ error: 'This package is temporarily unavailable for payment.' }, { status: 503 });
+        if (localOffer && selectedTier !== 'basic') return NextResponse.json({ error: 'The KSh650 local offer is only available for a local introduction request.' }, { status: 409 });
+        const paymentReference = String(body.payment_reference || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32);
+        if (paymentReference.length < 6) return NextResponse.json({ error: 'Enter the full transaction reference from your payment receipt.' }, { status: 400 });
+        const method = String(body.payment_method || '').toLowerCase();
+        if (!['airtel', 'mpesa'].includes(method)) return NextResponse.json({ error: 'Choose Airtel Money or M-Pesa.' }, { status: 400 });
+        const { data: account, error: accountError } = await supabase.from('users').select('id, email, display_name').eq('id', authenticatedUserId).maybeSingle();
+        if (accountError) return NextResponse.json({ error: 'Could not confirm your account. Please retry.' }, { status: 503 });
+        if (!account?.id) return NextResponse.json({ error: 'Account not found. Sign in again.' }, { status: 401 });
+        const duplicate = await supabase.from('package_requests').select('id, user_id, status').eq('payment_reference', paymentReference).maybeSingle();
+        if (duplicate.data?.id) return NextResponse.json({ error: duplicate.data.user_id === authenticatedUserId ? 'This transaction reference has already been submitted.' : 'That transaction reference has already been used.' }, { status: 409 });
+        const pending = await supabase.from('package_requests').select('id').eq('user_id', authenticatedUserId).eq('status', 'pending').limit(1).maybeSingle();
+        if (pending.data?.id) return NextResponse.json({ error: 'You already have a payment request under review. Contact support if you need to correct it.' }, { status: 409 });
         const requestPayload = {
-            user_id: memberId || null,
-            email: String(body.email || '').trim().toLowerCase(),
-            display_name: String(body.display_name || body.senderName || 'Member').slice(0, 120),
-            tier,
+            user_id: authenticatedUserId,
+            email: account.email,
+            display_name: account.display_name || 'Member',
+            tier: selectedTier,
             amount_ksh: amount,
             status: 'pending',
             payment_reference: paymentReference.slice(0, 120),
-            note: String(body.note || '').slice(0, 500),
+            note: `${localOffer ? '[GS_LOCAL_CONNECTION_OFFER_V1] Local introduction offer: KSh650 (standard desk fee KSh750). ' : ''}Payment method: ${method === 'mpesa' ? 'M-Pesa' : 'Airtel Money'}. ${String(body.note || '').replace(/\[GS_LOCAL_CONNECTION_OFFER_V1\]/gi, '').slice(0, 400)}`,
         };
         const result = await supabase.from('package_requests').insert(requestPayload).select('id, tier, status, amount_ksh').maybeSingle();
         if (result.error && result.error.code !== 'PGRST205') return NextResponse.json({ error: result.error.message }, { status: 500 });
-        const requestTitle = 'Package request received';
-        const requestBody = `Your ${tier.toUpperCase()} package request with transaction ID ${paymentReference} is waiting for admin approval.`;
-        if (memberId) {
-            try { await supabase.from('user_notifications').insert({ user_id: memberId, type: 'package', title: requestTitle, body: requestBody }); } catch {}
-        }
+        const requestTitle = localOffer ? 'Local offer payment submitted' : 'Package request received';
+        const requestBody = localOffer
+            ? `Your KSh650 local introduction offer payment (transaction ID ${paymentReference}) is waiting for admin verification. The offer is not claimed until the payment is confirmed.`
+            : `Your ${tier.toUpperCase()} package request with transaction ID ${paymentReference} is waiting for admin approval.`;
+        try { await supabase.from('user_notifications').insert({ user_id: authenticatedUserId, type: 'package', title: requestTitle, body: requestBody }); } catch {}
         if (requestPayload.email) await sendAndLogEmail(supabase, { to: requestPayload.email, subject: requestTitle, text: requestBody, html: emailHtml(requestTitle, requestBody) });
+        const adminEmail = String(process.env.ADMIN_EMAIL || '').trim();
+        if (adminEmail) {
+            const adminTitle = localOffer ? 'Review KSh650 local introduction offer' : 'Review mobile-money package payment';
+            const adminBody = `${account.display_name || 'Member'} (${account.email}) submitted ${tier} for KSh ${amount}. Payment method: ${method === 'mpesa' ? 'M-Pesa' : 'Airtel Money'}. Transaction ID: ${paymentReference}${localOffer ? '. This request includes the KSh650 local introduction offer.' : ''}. Verify against the provider transaction record before approving.`;
+            await sendAndLogEmail(supabase, { to: adminEmail, subject: adminTitle, text: adminBody, html: emailHtml(adminTitle, adminBody, { actionUrl: '/admin', actionLabel: 'Review in admin panel' }) });
+        }
         try { await supabase.from('admin_logs').insert({ action: 'package_requested', details: requestPayload }); } catch {}
         return NextResponse.json({ ok: true, request: result.data || requestPayload, persisted: !result.error });
     }
 
+    if (action === 'local_offer_status') {
+        if (!authenticatedUserId) return NextResponse.json({ error: 'Sign in to check this offer.' }, { status: 401 });
+        const result = await supabase.from('package_requests')
+            .select('id, status, created_at')
+            .eq('user_id', authenticatedUserId)
+            .ilike('note', '[GS_LOCAL_CONNECTION_OFFER_V1]%')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (result.error) return NextResponse.json({ error: 'Offer status is temporarily unavailable.' }, { status: 503 });
+        const status = result.data?.status === 'approved' ? 'claimed' : result.data?.status === 'pending' ? 'under_review' : 'available';
+        return NextResponse.json({ ok: true, status });
+    }
+
     if (action === 'record_interaction') {
-        const actorUserId = body.actorUserId || body.userId || null;
+        const actorUserId = authenticatedUserId;
         const profileKey = String(body.profileKey || body.savedKey || memberId || '').slice(0, 180);
         const kind = String(body.kind || body.interaction || 'view').slice(0, 40);
         const usageKind = kind === 'superlike' ? 'superlikes' : kind === 'like' ? 'likes' : kind === 'pass' || kind === 'swipe_pass' ? 'swipes' : kind === 'message' ? 'messages' : 'views';
@@ -1688,7 +1786,7 @@ export async function POST(request) {
     }
 
     if (action === 'like' || action === 'superlike') {
-        const actorUserId = body.actorUserId || body.likerId || null;
+        const actorUserId = authenticatedUserId;
         if (!memberId || !actorUserId) return NextResponse.json({ error: 'Signed-in user and member are required.' }, { status: 400 });
         if (memberId === actorUserId) return NextResponse.json({ error: 'You cannot like your own profile.' }, { status: 400 });
         const quota = await enforceDailyLimit(supabase, actorUserId, action === 'superlike' ? 'superlikes' : 'likes');
@@ -1745,7 +1843,7 @@ export async function POST(request) {
     }
 
     if (action === 'swipe_pass') {
-        const actorUserId = body.actorUserId || null;
+        const actorUserId = authenticatedUserId;
         if (!memberId || !actorUserId) return NextResponse.json({ error: 'Signed-in user and member are required.' }, { status: 400 });
         const quota = await enforceDailyLimit(supabase, actorUserId, 'swipes');
         if (!quota.ok) return NextResponse.json({ error: quota.message || LIMIT_NOTICE, ...quota }, { status: 402 });
@@ -1760,7 +1858,7 @@ export async function POST(request) {
     }
 
     if (action === 'save_profile') {
-        const saverId = body.actorUserId || body.userId || null;
+        const saverId = authenticatedUserId;
         const savedKey = String(body.savedKey || memberId || '').slice(0, 160);
         if (!saverId || !savedKey) return NextResponse.json({ error: 'Signed-in user and saved profile are required.' }, { status: 400 });
         const result = await supabase.from('member_saves').upsert({
@@ -1780,7 +1878,7 @@ export async function POST(request) {
     }
 
     if (action === 'unsave_profile') {
-        const saverId = body.actorUserId || body.userId || null;
+        const saverId = authenticatedUserId;
         const savedKey = String(body.savedKey || memberId || '').slice(0, 160);
         if (!saverId || !savedKey) return NextResponse.json({ error: 'Signed-in user and saved profile are required.' }, { status: 400 });
         const result = await supabase.from('member_saves').delete().eq('user_id', saverId).eq('saved_key', savedKey);
@@ -1789,7 +1887,7 @@ export async function POST(request) {
         return NextResponse.json({ ok: true, persisted: !result.error });
     }
     if (action === 'view') {
-        const viewerId = body.actorUserId || body.viewerId || body.userId || null;
+        const viewerId = authenticatedUserId;
         if (viewerId) {
             const quota = await enforceDailyLimit(supabase, viewerId, 'views');
             if (!quota.ok) return NextResponse.json({ error: quota.message || LIMIT_NOTICE, ...quota }, { status: 402 });
@@ -1809,10 +1907,12 @@ export async function POST(request) {
     }
 
     if (action === 'follow') {
+        if (!authenticatedUserId) return NextResponse.json({ error: 'Sign in to follow members.' }, { status: 401 });
+        const followerKey = authenticatedUserId;
         const existing = await supabase
             .from('member_follows')
             .select('id')
-            .eq('follower_key', actorKey)
+            .eq('follower_key', followerKey)
             .eq('followed_id', memberId)
             .maybeSingle();
 
@@ -1824,21 +1924,23 @@ export async function POST(request) {
             return NextResponse.json({ ok: true, following: false, followersCount: nextCount });
         }
 
-        const inserted = await supabase.from('member_follows').insert({ follower_key: actorKey, followed_id: memberId });
+        const inserted = await supabase.from('member_follows').insert({ follower_key: followerKey, followed_id: memberId });
         if (inserted.error && inserted.error.code !== 'PGRST205') return NextResponse.json({ error: inserted.error.message }, { status: 500 });
         const result = await incrementUserCounter(supabase, memberId, 'followers_count');
         return NextResponse.json({ ok: true, following: true, followersCount: result.data?.followers_count || 0, persisted: !inserted.error });
     }
 
     if (action === 'message') {
+        if (!authenticatedUserId) return NextResponse.json({ error: 'Sign in to send a member message.' }, { status: 401 });
         const text = String(body.message || '').trim();
         let attachmentUrl = String(body.attachmentUrl || body.attachment_url || '').trim();
         const attachmentType = String(body.attachmentType || body.attachment_type || '').trim().slice(0, 40);
         const attachmentName = String(body.attachmentName || body.attachment_name || '').trim().slice(0, 120);
         let voiceUrl = String(body.voiceUrl || body.voice_url || '').trim();
         if (text.length < 2 && !attachmentUrl && !voiceUrl) return NextResponse.json({ error: 'Message is too short.' }, { status: 400 });
-        const senderUserId = body.actorUserId || body.senderUserId || null;
-        const senderName = String(body.senderName || 'Member').slice(0, 80);
+        const senderUserId = authenticatedUserId;
+        const { data: sender } = await supabase.from('users').select('display_name').eq('id', senderUserId).maybeSingle();
+        const senderName = String(sender?.display_name || 'Member').slice(0, 80);
         const quota = await enforceDailyLimit(supabase, senderUserId, 'messages');
         if (!quota.ok) return NextResponse.json({ error: quota.message || LIMIT_NOTICE, ...quota }, { status: 402 });
         attachmentUrl = await uploadMessageAsset(supabase, attachmentUrl, { ownerId: senderUserId || actorKey, type: attachmentType || 'attachment', name: attachmentName });
@@ -1877,11 +1979,13 @@ export async function POST(request) {
     }
 
     if (action === 'call_request') {
+        if (!authenticatedUserId) return NextResponse.json({ error: 'Sign in to request a call.' }, { status: 401 });
         const callType = String(body.callType || 'voice').slice(0, 20);
-        const requesterName = String(body.senderName || 'Member').slice(0, 80);
+        const { data: requester } = await supabase.from('users').select('display_name').eq('id', authenticatedUserId).maybeSingle();
+        const requesterName = String(requester?.display_name || 'Member').slice(0, 80);
         const result = await supabase.from('call_requests').insert({
             member_id: memberId,
-            requester_key: actorKey,
+            requester_key: authenticatedUserId,
             requester_name: requesterName,
             call_type: callType,
             status: 'pending',
@@ -1894,19 +1998,21 @@ export async function POST(request) {
                 type: 'call_request',
                 title: `${callType === 'video' ? 'Video' : 'Voice'} call request`,
                 body: `${requesterName} requested a ${callType} call. Admin can review the request.`,
-                metadata: { requesterKey: actorKey },
+            metadata: { requesterKey: authenticatedUserId },
             });
         } catch {}
         return NextResponse.json({ ok: true, persisted: !result.error });
     }
 
     if (action === 'gift') {
+        if (!authenticatedUserId) return NextResponse.json({ error: 'Sign in to send a gift.' }, { status: 401 });
         const giftName = String(body.giftName || 'Rose').slice(0, 80);
         const emoji = String(body.emoji || ':rose:').slice(0, 40);
-        const senderName = String(body.senderName || 'Member').slice(0, 80);
+        const { data: sender } = await supabase.from('users').select('display_name').eq('id', authenticatedUserId).maybeSingle();
+        const senderName = String(sender?.display_name || 'Member').slice(0, 80);
         const result = await supabase.from('member_gifts').insert({
             member_id: memberId,
-            sender_key: actorKey,
+            sender_key: authenticatedUserId,
             gift_name: giftName,
             emoji,
             message: String(body.message || '').slice(0, 240),
@@ -1918,7 +2024,7 @@ export async function POST(request) {
                 type: 'gift',
                 title: `${senderName} sent a ${giftName}`,
                 body: `${emoji} ${String(body.message || 'You received a gift.').slice(0, 240)}`,
-                metadata: { senderKey: actorKey, giftName },
+                metadata: { senderKey: authenticatedUserId, giftName },
             });
         } catch {}
         const counter = await incrementUserCounter(supabase, memberId, 'gifts_received_count');

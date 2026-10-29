@@ -17,26 +17,18 @@ import StoriesStrip from '@/components/StoriesStrip';
 import AccountActivityPanel from '@/components/AccountActivityPanel';
 import PageHeader from '@/components/PageHeader';
 
-const PREFERENCE_LABELS = {
-    sugar_mummy_looking_for_toyboy: 'Sugar Mummy seeking Sugar Guy / Toyboy',
-    sugar_daddy_looking_for_mistress: 'Sugar Daddy seeking Mistress',
-    mistress_looking_for_sugar_daddy: 'Mistress seeking Sugar Daddy',
-    toyboy_looking_for_sugar_mummy: 'Sugar Guy / Toyboy seeking Sugar Mummy',
-};
-
 export default function ProfilePage() {
     const {
         user, guest, profile, likes, matches, saved, messages,
         verificationStatus, verificationTimer, settings, preference, liveLocationData,
         signOut, updateProfile, addPhoto, removePhoto,
-        updateSettings, updatePreference, verifyProfile, clearVerification, deleteAccount, addMessage,
+        updateSettings, verifyProfile, clearVerification, deleteAccount, addMessage,
     } = useAuth();
 
     const [activeSection, setActiveSection] = useState(null);
     const [editField, setEditField] = useState(null);
     const [editValue, setEditValue] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [showPreferencePicker, setShowPreferencePicker] = useState(false);
     const [moderationCountdown, setModerationCountdown] = useState('');
     const [verificationForm, setVerificationForm] = useState({ selfieDataUrl: '', documentDataUrl: '', documentType: 'id', phone: profile?.phone_number || profile?.phone || '' });
     const [supportForm, setSupportForm] = useState({ service: 'payment_issue', subject: '', message: '' });
@@ -52,7 +44,7 @@ export default function ProfilePage() {
     const canRevealPhone = packageApproved && ['silver', 'gold', 'diamond'].includes(currentTier);
     const canUseBasic = packageApproved && ['basic', 'silver', 'gold', 'diamond'].includes(currentTier);
     const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Guest';
-    const username = String(displayName || 'member').trim().toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || 'member';
+    const username = String(profile?.username || user?.username || displayName || 'member').trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24) || 'member';
     const userPhotos = profile?.photos || [];
     const profilePhotoMissing = !(profile?.avatar_url || userPhotos[0]);
     const profileComplete = Boolean((profile?.avatar_url || userPhotos[0]) && profile?.bio && profile?.age && profile?.location && (profile?.phone_number || profile?.phone));
@@ -239,16 +231,8 @@ export default function ProfilePage() {
                     </h2>
                     {isLoggedIn && <p className="text-xs text-text-muted">@{username} - {profile?.location || 'Location not set'}</p>}
                     {guest && <p className="text-xs text-primary font-medium">Guest Mode</p>}
-                    {/* Preference badge */}
-                    {isLoggedIn && preference && (
-                        <button
-                            onClick={() => setShowPreferencePicker(true)}
-                            className="mt-1 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-primary"
-                            style={{ background: 'rgba(124,58,237,0.08)' }}
-                        >
-                            {PREFERENCE_LABELS[preference] || preference} {profile?.preference_locked ? '(locked)' : <Edit3 size={10} />}
-                        </button>
-                    )}
+                    {isLoggedIn && <p className="mt-1 text-xs text-text-muted">Account type: {String(profile?.profile_label || preference?.split('_looking_for_')[0] || 'member').replace(/_/g, ' ').replace(/\b[a-z]/g, (letter) => letter.toUpperCase())} · fixed after registration</p>}
+                    {isLoggedIn && profile?.looking_for && <p className="text-xs text-text-muted">Looking for: {profile.looking_for}</p>}
                 </div>
 
                 {/* Stats */}
@@ -300,7 +284,7 @@ export default function ProfilePage() {
                             { label: 'Verify', icon: ShieldCheck, href: '#verification' },
                             { label: 'Privacy', icon: Lock, href: '#privacy' },
                             { label: 'Status', icon: Eye, href: '#status' },
-                            { label: 'Prefs', icon: SlidersHorizontal, action: () => setShowPreferencePicker(true) },
+                            { label: 'Prefs', icon: SlidersHorizontal, href: '#profile-info' },
                             { label: 'Phone', icon: Phone, href: '#profile-info' },
                             { label: 'Support', icon: Headphones, href: '#support' },
                             { label: 'Wallet', icon: Wallet, href: '/wallet' },
@@ -310,7 +294,7 @@ export default function ProfilePage() {
                                 <>
                                     <span className="relative mx-auto w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                                         <Icon size={18} />
-                                        {item.count > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-secondary text-white text-[11px] leading-4 px-1">{item.count > 99 ? '99+' : item.count}</span>}
+                                        {item.count > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-primary text-white text-[11px] leading-4 px-1">{item.count > 99 ? '99+' : item.count}</span>}
                                     </span>
                                     <span className="text-[11px] font-black text-text-secondary">{item.label}</span>
                                 </>
@@ -379,7 +363,7 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className="aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-colors"
-                                style={{ background: 'var(--color-surface)', border: '2px dashed rgba(124,58,237,0.2)' }}
+                                style={{ background: 'var(--color-surface)', border: '2px dashed color-mix(in srgb, var(--color-primary) 42%, transparent)' }}
                             >
                                 <Plus size={20} className="text-primary" />
                                 <span className="text-[11px] text-text-muted font-medium">Add</span>
@@ -406,7 +390,7 @@ export default function ProfilePage() {
                         <Shield size={16} className="text-primary" /> Manual Verification
                     </h3>
                     {effectiveVerificationStatus === 'pending_admin' ? (
-                        <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(124,58,237,0.08)' }}>
+                        <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--color-primary-soft)' }}>
                             <Clock size={24} className="text-primary" />
                             <div className="flex-1">
                                 <p className="text-sm font-bold text-primary">Waiting for Admin Review</p>
@@ -444,7 +428,7 @@ export default function ProfilePage() {
             {/* ===== PROFILE INFO (editable) ===== */}
             {isLoggedIn && (
                 <div id="profile-info" className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
-                    <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
+                    <div className="px-4 py-3" style={{ borderBottom: 'var(--card-border)' }}>
                         <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                             <Edit3 size={16} className="text-primary" /> Profile Info
                         </h3>
@@ -523,7 +507,7 @@ export default function ProfilePage() {
             {/* ===== SETTINGS ===== */}
             {isLoggedIn && (
                 <div id="privacy" className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
-                    <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(124,58,237,0.08)' }}>
+                    <div className="px-4 py-3" style={{ borderBottom: 'var(--card-border)' }}>
                         <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                             <Settings size={16} className="text-primary" /> Settings
                         </h3>
@@ -635,50 +619,6 @@ export default function ProfilePage() {
                 )}
             </AnimatePresence>
 
-            {/* ===== PREFERENCE PICKER MODAL ===== */}
-            <AnimatePresence>
-                {showPreferencePicker && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
-                        onClick={() => setShowPreferencePicker(false)}
-                    >
-                        <motion.div
-                            initial={{ y: 200 }} animate={{ y: 0 }} exit={{ y: 200 }}
-                            className="w-full max-w-md rounded-t-3xl p-5 space-y-3"
-                            style={{ background: 'var(--color-bg-card)' }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <h3 className="text-lg font-bold text-text-primary text-center">Your Preference</h3>
-                            {profile?.preference_locked && (
-                                <div className="rounded-2xl p-3 text-xs leading-relaxed text-primary bg-primary/10">
-                                    Your account type is locked after registration so members see the right matches. Contact support if this was selected by mistake.
-                                </div>
-                            )}
-                            {Object.entries(PREFERENCE_LABELS).map(([key, label]) => (
-                                <button key={key}
-                                    onClick={() => {
-                                        if (!profile?.preference_locked) updatePreference(key);
-                                        setShowPreferencePicker(false);
-                                    }}
-                                    className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all"
-                                    style={{
-                                        background: preference === key ? 'rgba(124,58,237,0.08)' : 'transparent',
-                                        border: `2px solid ${preference === key ? '#7C3AED' : 'rgba(0,0,0,0.06)'}`,
-                                    }}
-                                >
-                                    <span className="text-sm font-semibold text-text-primary">{label}</span>
-                                    {preference === key && <div className="w-4 h-4 rounded-full bg-primary" />}
-                                </button>
-                            ))}
-                            <button onClick={() => setShowPreferencePicker(false)}
-                                className="w-full py-3 text-sm font-medium text-text-muted"
-                            >
-                                Cancel
-                            </button>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* ===== DELETE CONFIRMATION ===== */}
             <AnimatePresence>

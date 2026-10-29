@@ -263,9 +263,9 @@ export default function WatchLivePage({ params }) {
     return (
         <div className="min-h-dvh bg-gray-950 text-white">
             <div className="relative min-h-dvh overflow-hidden" onDoubleClick={addHeart}>
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-teal-950 to-rose-950" />
+                <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-zinc-900 to-rose-950" />
                 <video ref={remoteVideoRef} autoPlay playsInline onClick={() => remoteVideoRef.current?.play?.().catch(() => {})} className="absolute inset-0 h-full w-full object-cover bg-gray-950" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(240,68,114,.28),transparent_30%),radial-gradient(circle_at_70%_70%,rgba(14,143,131,.32),transparent_34%)]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25" />
                 {hearts.map((heart) => <span key={heart.id} className="pointer-events-none absolute bottom-24 text-3xl animate-[float_1.9s_ease-out_forwards]" style={{ left: `${heart.left}%` }}>♥</span>)}
 
                 <header className="relative z-10 flex items-center gap-3 p-4">

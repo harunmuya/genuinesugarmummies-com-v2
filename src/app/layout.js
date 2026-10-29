@@ -17,39 +17,37 @@ export const viewport = {
     userScalable: true,
     viewportFit: 'cover',
     // Matches --color-bg-dark, so the system chrome meets the app cleanly.
-    themeColor: '#0A0E12',
+    themeColor: '#09090B',
     colorScheme: 'dark',
 };
 
-/*
-  The title and description here were byte-identical to V1's, on a different
-  domain. Two properties telling search engines they are the same thing is the
-  worst of both worlds: neither ranks, and whichever loses looks like a copy of
-  the other. This copy describes what this app actually is, the global one, in
-  its own words.
-*/
 export const metadata = {
-    title: 'GS Global | Meet Verified Sugar Mummies & Sugar Daddies',
-    description: 'Real profiles, verified by hand. Meet sugar mummies and sugar daddies near you, message safely, and go live. Free to join.',
-    keywords: ['sugar mummy', 'sugar daddy', 'verified dating', 'live video dating', 'gs global'],
+    title: {
+        default: 'Genuine Sugarmummies | Adult Introductions',
+        template: '%s | Genuine Sugarmummies',
+    },
+    description: 'Discover adult profiles, set your preferences, and start conversations through Genuine Sugarmummies. Membership and paid features are explained in the app.',
     authors: [{ name: 'Genuine Sugar Mummies' }],
     creator: 'Genuine Sugar Mummies',
-    metadataBase: new URL('https://genuinesugarmummies.com'),
-    alternates: {
-        canonical: '/',
+    metadataBase: new URL('https://app.genuinesugarmummies.com'),
+    robots: {
+        index: false,
+        follow: false,
+        noarchive: true,
+        nosnippet: true,
+        googleBot: { index: false, follow: false, noimageindex: true, noarchive: true, nosnippet: true },
     },
     openGraph: {
-        title: 'GS Global | Meet Verified Sugar Mummies & Sugar Daddies',
-        description: 'Real profiles, verified by hand. Message safely, go live, and meet people near you.',
-        url: 'https://genuinesugarmummies.com',
+        title: 'Genuine Sugarmummies | Adult Introductions',
+        description: 'Discover adult profiles, set your preferences, and start conversations through Genuine Sugarmummies.',
         siteName: 'Genuine Sugar Mummies',
-        locale: 'en_US',
+        locale: 'en_KE',
         type: 'website',
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'GS Global',
-        description: 'Verified sugar mummy and sugar daddy dating',
+        title: 'Genuine Sugarmummies',
+        description: 'Adult introductions and member profiles',
     },
     manifest: '/manifest.json',
     icons: {
@@ -59,7 +57,7 @@ export const metadata = {
     appleWebApp: {
         capable: true,
         statusBarStyle: 'black-translucent',
-        title: 'GS Global',
+        title: 'Genuine Sugarmummies',
     },
 };
 

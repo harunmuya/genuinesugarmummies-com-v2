@@ -25,7 +25,9 @@ def tables_with_dependencies():
         sorted(p.read_text(encoding="utf-8", errors="replace") for p in MIGRATIONS.glob("*.sql"))
     )
     blocks = re.findall(
-        r"CREATE TABLE (?:IF NOT EXISTS )?public\.([a-z_]+)\s*\((.*?)\n\);", schema, re.S
+        r"CREATE TABLE (?:IF NOT EXISTS )?public\.([a-z_]+)\s*\((.*?)\n\);",
+        schema,
+        re.I | re.S,
     )
 
     order, deps = [], {}

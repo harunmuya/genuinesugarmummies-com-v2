@@ -26,6 +26,7 @@ const SUPABASE_HOST = supabaseHost();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: process.env.VERCEL ? undefined : 'standalone',
     turbopack: {
         root: __dirname,
     },
@@ -71,6 +72,12 @@ const nextConfig = {
     // Security headers
     async headers() {
         return [
+            {
+                source: '/api/:path*',
+                headers: [
+                    { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+                ],
+            },
             {
                 /*
                   The APK must never be served from cache.

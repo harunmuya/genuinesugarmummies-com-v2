@@ -1,6 +1,6 @@
 ﻿{
   "appId": "com.genuinesugarmummies.global",
-  "appName": "GS Global",
+  "appName": "Genuine Sugarmummies",
   "webDir": "native-shell",
   "server": {
     "url": "https://genuinesugarmummies-com-v2.vercel.app",

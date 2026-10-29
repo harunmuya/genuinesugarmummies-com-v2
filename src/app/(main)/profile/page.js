@@ -65,7 +65,7 @@ export default function AccountMenuPage() {
                     <p className="truncate text-xs text-text-muted">{user?.email}</p>
                     <span
                         className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={{ background: 'rgba(20,224,200,0.12)', color: 'var(--color-primary)' }}
+                        style={{ background: 'var(--color-primary-soft)', color: 'var(--color-primary)' }}
                     >
                         <Gem size={10} /> {tier}
                     </span>
@@ -139,7 +139,7 @@ export default function AccountMenuPage() {
                 <MenuRow icon={Trash2} label="Delete account" tone="danger" href="/profile/details#danger" />
             </MenuGroup>
 
-            <p className="pb-2 text-center text-[11px] text-text-muted">GS Global</p>
+            <p className="pb-2 text-center text-[11px] text-text-muted">Genuine Sugarmummies</p>
         </div>
     );
 }

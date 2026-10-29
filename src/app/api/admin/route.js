@@ -1,24 +1,49 @@
 ﻿import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { emailHtml, sendAndLogEmail } from '@/lib/email';
 import { isMissingSchema, isQuotaRestricted } from '@/lib/supabaseError';
+import { getPackageTier } from '@/lib/packageAccess';
+import { sendPushToUser } from '@/lib/pushNotifications';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@genuinesugarmummies.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@2026!';
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_SIGNING_SECRET = process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const ADMIN_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
 const PACKAGE_TIERS = {
-    free: { name: 'Free', price: 0, phoneReveal: false, dailyMessages: 2, likes: 3, swipes: 3, giftAccess: false, calls: false, priority: false },
-    basic: { name: 'Basic', price: 650, phoneReveal: false, dailyMessages: 10, likes: 10, swipes: 10, giftAccess: true, calls: false, priority: false },
-    silver: { name: 'Silver', price: 1200, phoneReveal: true, dailyMessages: 0, likes: 0, swipes: 0, giftAccess: true, calls: true, priority: true },
+    free: { name: 'Free', price: 0, phoneReveal: false, dailyMessages: 5, likes: 5, swipes: 10, giftAccess: false, calls: false, priority: false },
+    basic: { name: 'Basic', price: 750, phoneReveal: false, dailyMessages: 30, likes: 10, swipes: 30, giftAccess: true, calls: false, priority: false },
+    silver: { name: 'Silver', price: 1200, phoneReveal: true, dailyMessages: 0, likes: 50, swipes: 0, giftAccess: true, calls: true, priority: true },
     gold: { name: 'Gold International', price: 3550, phoneReveal: true, dailyMessages: 0, likes: 0, swipes: 0, giftAccess: true, calls: true, priority: true },
 };
 
-function tokenFor(email, password) {
-    return Buffer.from(`${email}:${password}`).toString('base64');
+function safeEqual(left, right) {
+    const a = Buffer.from(String(left || ''));
+    const b = Buffer.from(String(right || ''));
+    return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function signature(payload) {
+    return createHmac('sha256', ADMIN_SIGNING_SECRET).update(payload).digest('base64url');
+}
+
+function tokenFor(email) {
+    const payload = Buffer.from(JSON.stringify({ sub: email, exp: Date.now() + ADMIN_TOKEN_TTL_MS })).toString('base64url');
+    return `${payload}.${signature(payload)}`;
 }
 
 function isAuthed(request) {
-    const token = request.headers.get('x-admin-token') || '';
-    return token === tokenFor(ADMIN_EMAIL, ADMIN_PASSWORD);
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD || !ADMIN_SIGNING_SECRET) return false;
+    const [payload, suppliedSignature, extra] = String(request.headers.get('x-admin-token') || '').split('.');
+    if (!payload || !suppliedSignature || extra) return false;
+    const expectedSignature = signature(payload);
+    if (!safeEqual(suppliedSignature, expectedSignature)) return false;
+    try {
+        const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+        return claims.sub === ADMIN_EMAIL && Number.isFinite(claims.exp) && claims.exp > Date.now();
+    } catch {
+        return false;
+    }
 }
 
 function jsonError(message, status = 500) {
@@ -47,7 +72,15 @@ async function writeLog(supabase, action, details = {}) {
 }
 
 async function queueUserNotification(supabase, payload) {
-    try { await supabase.from('user_notifications').insert(payload); } catch {}
+    try {
+        await supabase.from('user_notifications').insert(payload);
+        await sendPushToUser(supabase, payload.user_id, {
+            title: payload.title,
+            body: payload.body,
+            url: payload.metadata?.actionLink || '/alerts',
+            tag: `gs-notice-${payload.type || 'account'}`,
+        });
+    } catch {}
 }
 
 async function queueEmail(supabase, payload) {
@@ -72,7 +105,7 @@ async function getUserById(supabase, userId) {
 
 async function getPackageRequest(supabase, requestId) {
     if (!requestId) return null;
-    const { data } = await supabase.from('package_requests').select('id, user_id, email, display_name, tier, amount_ksh, payment_reference').eq('id', requestId).maybeSingle();
+    const { data } = await supabase.from('package_requests').select('id, user_id, email, display_name, tier, amount_ksh, payment_reference, note, status').eq('id', requestId).maybeSingle();
     return data || null;
 }
 
@@ -118,8 +151,11 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
 
     if (body.action === 'login') {
-        if (body.email === ADMIN_EMAIL && body.password === ADMIN_PASSWORD) {
-            return NextResponse.json({ ok: true, token: tokenFor(ADMIN_EMAIL, ADMIN_PASSWORD) });
+        if (!ADMIN_EMAIL || !ADMIN_PASSWORD || !ADMIN_SIGNING_SECRET) {
+            return jsonError('Admin sign-in is not configured on the server.', 503);
+        }
+        if (safeEqual(String(body.email || '').trim().toLowerCase(), ADMIN_EMAIL) && safeEqual(body.password, ADMIN_PASSWORD)) {
+            return NextResponse.json({ ok: true, token: tokenFor(ADMIN_EMAIL), expiresIn: ADMIN_TOKEN_TTL_MS });
         }
         return jsonError('Invalid admin credentials.', 401);
     }
@@ -285,24 +321,68 @@ export async function POST(request) {
 
     if (body.action === 'approve_package_request') {
         const requestRow = await getPackageRequest(supabase, body.requestId);
-        const tier = String(body.tier || body.subscriptionTier || requestRow?.tier || 'silver').toLowerCase();
-        const plan = PACKAGE_TIERS[tier] || PACKAGE_TIERS.silver;
-        const targetUserId = userId || await resolveRequestUser(supabase, requestRow);
-        if (targetUserId) {
-            const result = await updateUser(supabase, targetUserId, {
-                subscription_tier: tier,
-                admin_approved: true,
-                package_locked: false,
-                phone_reveal_plan: plan.phoneReveal ? tier : 'silver',
-                package_expires_at: body.packageExpiresAt || null,
+        if (!requestRow?.id) return jsonError('Payment request not found.', 404);
+        if (requestRow.status === 'approved') return NextResponse.json({ ok: true, alreadyApproved: true });
+        if (requestRow.status !== 'pending') return jsonError('This payment request is no longer pending review.', 409);
+        if (body.paymentVerified !== true) return jsonError('Confirm that you checked the payment in the provider transaction record.', 400);
+
+        const targetUserId = requestRow.user_id || await resolveRequestUser(supabase, requestRow);
+        if (!targetUserId) return jsonError('The payment request is not linked to an account.', 409);
+        const tier = String(requestRow.tier || '').toLowerCase();
+        const fallbackPlan = PACKAGE_TIERS[tier];
+        if (!fallbackPlan || !['basic', 'silver', 'gold'].includes(tier)) return jsonError('The requested package is not available.', 409);
+        const plan = await getPackageTier(supabase, tier);
+        const isLocalOffer = String(requestRow.note || '').startsWith('[GS_LOCAL_CONNECTION_OFFER_V1]');
+        const price = isLocalOffer ? 650 : tier === 'basic' ? 750 : Number(plan.price_ksh ?? fallbackPlan.price);
+        if (!requestRow.payment_reference || String(requestRow.payment_reference).length < 6 || Number(requestRow.amount_ksh) !== price) {
+            return jsonError('The submitted amount or transaction reference does not match the current package request.', 409);
+        }
+
+        if (isLocalOffer) {
+            const markedOffer = await supabase.from('package_requests')
+                .update({ status: 'approved', reviewed_at: new Date().toISOString(), admin_note: body.note || 'Payment verified. Local introduction offer claimed; desk follow-up required.' })
+                .eq('id', requestRow.id)
+                .eq('status', 'pending')
+                .select('id')
+                .maybeSingle();
+            if (markedOffer.error) return jsonError(markedOffer.error.message);
+            if (!markedOffer.data?.id) {
+                const latest = await getPackageRequest(supabase, requestRow.id);
+                if (latest?.status !== 'approved') return jsonError('Offer status needs admin review.', 409);
+                return NextResponse.json({ ok: true, alreadyApproved: true, localOffer: true });
+            }
+            await notifyUser(supabase, targetUserId, {
+                type: 'package',
+                title: 'Local introduction offer claimed',
+                body: 'Your KSh650 payment was verified and the offer is marked claimed. The desk will follow up about availability and next steps. A connection is not guaranteed.',
             });
-            if (result.error) return jsonError(result.error.message);
-            await notifyUser(supabase, targetUserId, { type: 'package', title: `${plan.name} package approved`, body: `Your KSh ${plan.price} payment has been approved. ${plan.name} package features are active.` });
+            await writeLog(supabase, 'approve_local_intro_offer', { userId: targetUserId, requestId: requestRow.id, amount: price });
+            return NextResponse.json({ ok: true, userId: targetUserId, localOffer: true });
         }
-        if (body.requestId) {
-            await supabase.from('package_requests').update({ status: 'approved', reviewed_at: new Date().toISOString(), admin_note: body.note || '' }).eq('id', body.requestId);
+
+        const activated = await updateUser(supabase, targetUserId, {
+            subscription_tier: tier,
+            admin_approved: true,
+            package_locked: false,
+            phone_reveal_plan: fallbackPlan.phoneReveal ? tier : 'silver',
+            package_expires_at: body.packageExpiresAt || null,
+        });
+        if (activated.error) return jsonError(activated.error.message);
+        const marked = await supabase.from('package_requests')
+            .update({ status: 'approved', reviewed_at: new Date().toISOString(), admin_note: body.note || '' })
+            .eq('id', requestRow.id)
+            .eq('status', 'pending')
+            .select('id')
+            .maybeSingle();
+        if (marked.error) return jsonError(marked.error.message);
+        if (!marked.data?.id) {
+            const latest = await getPackageRequest(supabase, requestRow.id);
+            if (latest?.status !== 'approved') return jsonError('Package access was updated, but request status needs admin review.', 409);
+            return NextResponse.json({ ok: true, alreadyApproved: true });
         }
-        await writeLog(supabase, 'approve_package_request', { userId: targetUserId, requestId: body.requestId, tier });
+        const displayPlan = plan.name || fallbackPlan.name;
+        await notifyUser(supabase, targetUserId, { type: 'package', title: `${displayPlan} package approved`, body: `Your verified KSh ${price} payment has been approved. Package access is now active${body.packageExpiresAt ? ` until ${new Date(body.packageExpiresAt).toLocaleDateString('en-GB')}` : ''}.` });
+        await writeLog(supabase, 'approve_package_request', { userId: targetUserId, requestId: requestRow.id, tier, amount: price });
         return NextResponse.json({ ok: true, userId: targetUserId, plan });
     }
 
@@ -370,7 +450,17 @@ export async function POST(request) {
     if (body.action === 'reject_package_request') {
         const requestRow = await getPackageRequest(supabase, body.requestId);
         const targetUserId = await resolveRequestUser(supabase, requestRow);
-        await supabase.from('package_requests').update({ status: 'rejected', reviewed_at: new Date().toISOString(), admin_note: body.note || '' }).eq('id', body.requestId);
+        if (!requestRow?.id) return jsonError('Payment request not found.', 404);
+        if (requestRow.status === 'rejected') return NextResponse.json({ ok: true, alreadyRejected: true });
+        if (requestRow.status !== 'pending') return jsonError('This payment request is no longer pending review.', 409);
+        const rejected = await supabase.from('package_requests')
+            .update({ status: 'rejected', reviewed_at: new Date().toISOString(), admin_note: body.note || '' })
+            .eq('id', requestRow.id)
+            .eq('status', 'pending')
+            .select('id')
+            .maybeSingle();
+        if (rejected.error) return jsonError(rejected.error.message);
+        if (!rejected.data?.id) return jsonError('Another admin action already changed this request.', 409);
         if (targetUserId) await notifyUser(supabase, targetUserId, { type: 'package', title: 'Package payment rejected', body: body.note || 'Your payment reference could not be approved. Please contact admin for help.' });
         await writeLog(supabase, 'reject_package_request', { requestId: body.requestId, userId: targetUserId });
         return NextResponse.json({ ok: true });

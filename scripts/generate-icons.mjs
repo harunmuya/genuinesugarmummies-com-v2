@@ -1,104 +1,145 @@
-/**
- * Generates app icons using SVG → PNG via the sharp package (already in Next.js deps).
- * Re-uses Node.js built-ins only as fallback if sharp is missing.
- */
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, '..');
-const PUBLIC = join(ROOT, 'public');
-const ICONS_DIR = join(PUBLIC, 'icons');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const publicDir = path.join(root, 'public');
+const androidRes = path.join(root, 'android', 'app', 'src', 'main', 'res');
+const sourcePath = path.join(publicDir, 'brand', 'genuine-sugarmummies-icon-source.png');
 
-if (!existsSync(ICONS_DIR)) mkdirSync(ICONS_DIR, { recursive: true });
+const { data, info } = await sharp(sourcePath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
 
-// Build SVG for a given size
-function buildSVG(size) {
-    const pad = Math.round(size * 0.12);
-    const r = Math.round(size * 0.22);     // corner radius
-    const cx = size / 2;
-    const cy = size / 2;
-    const fontSize = Math.round(size * 0.38);
-    const heartY = Math.round(cy + size * 0.26);
-    const heartSize = Math.round(size * 0.12);
+let left = info.width;
+let top = info.height;
+let right = 0;
+let bottom = 0;
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7C3AED"/>
-      <stop offset="100%" style="stop-color:#DB2777"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#FBBF24"/>
-      <stop offset="100%" style="stop-color:#F59E0B"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="${Math.round(size * 0.015)}" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
-  </defs>
-
-  <!-- Background rounded square -->
-  <rect x="0" y="0" width="${size}" height="${size}" rx="${r}" ry="${r}" fill="url(#bg)"/>
-
-  <!-- Subtle inner glow ring -->
-  <rect x="${pad}" y="${pad}" width="${size - pad * 2}" height="${size - pad * 2}"
-    rx="${r - pad / 2}" ry="${r - pad / 2}"
-    fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="${Math.round(size * 0.015)}"/>
-
-  <!-- GS Letters -->
-  <text x="${cx}" y="${cy + fontSize * 0.35}"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="${fontSize}"
-    font-weight="bold"
-    text-anchor="middle"
-    fill="url(#gold)"
-    filter="url(#glow)">GS</text>
-
-  <!-- Star / Heart icon below letters -->
-  <g transform="translate(${cx - heartSize}, ${heartY - heartSize})">
-    <path d="M${heartSize} ${heartSize * 0.3}
-      C${heartSize} ${heartSize * 0.1} ${heartSize * 0.7} 0 ${heartSize * 0.5} ${heartSize * 0.25}
-      C${heartSize * 0.3} 0 0 ${heartSize * 0.1} 0 ${heartSize * 0.3}
-      C0 ${heartSize * 0.55} ${heartSize * 0.5} ${heartSize * 0.9} ${heartSize * 0.5} ${heartSize * 0.9}
-      C${heartSize * 0.5} ${heartSize * 0.9} ${heartSize} ${heartSize * 0.55} ${heartSize} ${heartSize * 0.3}Z"
-      fill="white" opacity="0.9"/>
-  </g>
-</svg>`;
-}
-
-// Write SVG files first
-const sizes = [
-    { name: 'gs-logo.png', size: 512 },
-    { name: 'icons/icon-192.png', size: 192 },
-    { name: 'icons/icon-512.png', size: 512 },
-];
-
-// Try to use sharp (bundled with Next.js image optimization)
-let sharp;
-try {
-    const mod = await import('sharp');
-    sharp = mod.default;
-    console.log('Using sharp for PNG generation');
-} catch {
-    console.log('sharp not available');
-}
-
-for (const { name, size } of sizes) {
-    const svgContent = buildSVG(size);
-    const outPath = join(PUBLIC, name);
-
-    if (sharp) {
-        await sharp(Buffer.from(svgContent))
-            .png()
-            .toFile(outPath);
-        console.log(`✓ Generated ${name} (${size}x${size})`);
-    } else {
-        // Fallback: write as SVG with .png extension (browsers still render it)
-        writeFileSync(outPath, svgContent, 'utf8');
-        console.log(`✓ Saved ${name} as SVG fallback (${size}x${size})`);
+for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+        const offset = (y * info.width + x) * info.channels;
+        const brightness = Math.max(data[offset], data[offset + 1], data[offset + 2]);
+        if (data[offset + 3] > 16 && brightness > 120) {
+            left = Math.min(left, x);
+            top = Math.min(top, y);
+            right = Math.max(right, x);
+            bottom = Math.max(bottom, y);
+        }
     }
 }
 
-console.log('\nAll icons generated in /public');
+if (right <= left || bottom <= top) {
+    throw new Error(`No visible brand mark found in ${sourcePath}`);
+}
+
+const padding = Math.round(Math.min(info.width, info.height) * 0.012);
+left = Math.max(0, left - padding);
+top = Math.max(0, top - padding);
+right = Math.min(info.width - 1, right + padding);
+bottom = Math.min(info.height - 1, bottom + padding);
+
+const crop = {
+    left,
+    top,
+    width: right - left + 1,
+    height: bottom - top + 1,
+};
+const cropped = await sharp(sourcePath).extract(crop).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+
+for (let offset = 0; offset < cropped.data.length; offset += cropped.info.channels) {
+    const brightness = Math.max(
+        cropped.data[offset],
+        cropped.data[offset + 1],
+        cropped.data[offset + 2],
+    );
+    if (brightness < 20) cropped.data[offset + 3] = 0;
+}
+
+const mark = await sharp(cropped.data, { raw: cropped.info }).png().toBuffer();
+
+async function makeSquareIcon(size, outputPath) {
+    const logo = await sharp(mark)
+        .resize(Math.round(size * 0.86), Math.round(size * 0.68), {
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await sharp({
+        create: {
+            width: size,
+            height: size,
+            channels: 4,
+            background: { r: 9, g: 9, b: 11, alpha: 1 },
+        },
+    })
+        .composite([{ input: logo, gravity: 'center' }])
+        .png()
+        .toFile(outputPath);
+}
+
+await makeSquareIcon(512, path.join(publicDir, 'gs-logo.png'));
+await makeSquareIcon(192, path.join(publicDir, 'icons', 'icon-192.png'));
+await makeSquareIcon(512, path.join(publicDir, 'icons', 'icon-512.png'));
+
+const foregroundSize = 432;
+const adaptiveLogo = await sharp(mark)
+    .resize(Math.round(foregroundSize * 0.68), Math.round(foregroundSize * 0.56), {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+const foregroundPath = path.join(androidRes, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png');
+await fs.mkdir(path.dirname(foregroundPath), { recursive: true });
+await sharp({
+    create: {
+        width: foregroundSize,
+        height: foregroundSize,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+})
+    .composite([{ input: adaptiveLogo, gravity: 'center' }])
+    .png()
+    .toFile(foregroundPath);
+
+for (const [density, scale, size] of [
+    ['mdpi', 1, 48],
+    ['hdpi', 1.5, 72],
+    ['xhdpi', 2, 96],
+    ['xxhdpi', 3, 144],
+    ['xxxhdpi', 4, 192],
+]) {
+    const directory = path.join(androidRes, `mipmap-${density}`);
+    await makeSquareIcon(size, path.join(directory, 'ic_launcher.png'));
+    await makeSquareIcon(size, path.join(directory, 'ic_launcher_round.png'));
+
+    if (density !== 'xxxhdpi') {
+        const foregroundSizeForDensity = Math.round(108 * scale);
+        const densityForeground = await sharp(mark)
+            .resize(Math.round(foregroundSizeForDensity * 0.68), Math.round(foregroundSizeForDensity * 0.56), {
+                fit: 'contain',
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+            })
+            .png()
+            .toBuffer();
+        await sharp({
+            create: {
+                width: foregroundSizeForDensity,
+                height: foregroundSizeForDensity,
+                channels: 4,
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+            },
+        })
+            .composite([{ input: densityForeground, gravity: 'center' }])
+            .png()
+            .toFile(path.join(directory, 'ic_launcher_foreground.png'));
+    }
+}
+
+console.log('Generated branded PWA and Android launcher icons from the supplied GS mark.');

@@ -49,7 +49,7 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('push', (event) => {
     let payload = {};
     try { payload = event.data ? event.data.json() : {}; } catch { payload = { title: 'GS notification', body: event.data?.text() || '' }; }
-    const title = payload.title || 'Genuine Sugar Mummies';
+    const title = payload.title || 'Genuine Sugarmummies';
     const count = Math.max(0, Math.min(99, Number(payload.count || 1)));
     const options = {
         body: payload.body || '',

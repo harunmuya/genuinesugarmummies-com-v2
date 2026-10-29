@@ -1,16 +1,16 @@
 'use client';
 
 const COLORS = [
-    ['#7c3aed', '#a78bfa'], // violet
-    ['#ec4899', '#f472b6'], // pink
-    ['#8b5cf6', '#a78bfa'], // purple
-    ['#e11d48', '#f43f5e'], // rose
-    ['#3b82f6', '#60a5fa'], // blue
-    ['#10b981', '#34d399'], // emerald
-    ['#f59e0b', '#fbbf24'], // amber
-    ['#06b6d4', '#22d3ee'], // cyan
-    ['#14b8a6', '#2dd4bf'], // teal
-    ['#6366f1', '#818cf8'], // indigo
+    ['#9f1239', '#fb7185'],
+    ['#be123c', '#fda4af'],
+    ['#7f1d1d', '#f87171'],
+    ['#9a3412', '#fb923c'],
+    ['#854d0e', '#facc15'],
+    ['#1d4ed8', '#60a5fa'],
+    ['#166534', '#4ade80'],
+    ['#4c1d95', '#c4b5fd'],
+    ['#334155', '#cbd5e1'],
+    ['#831843', '#f9a8d4'],
 ];
 
 function getColorPair(name) {

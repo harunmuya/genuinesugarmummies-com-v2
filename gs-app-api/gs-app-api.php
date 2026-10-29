@@ -4,7 +4,7 @@
  * Plugin URI:   https://genuinesugarmummies.com
  * Description:  Multi-purpose REST API plugin for the GenuineSugarMummies.com Next.js app.
  *               Handles profiles/posts, comments (with avatars), featured images, and email subscriptions.
- * Version:      2.0.0
+ * Version:      2.1.0
  * Author:       GenuineSugarMummies.com
  * Author URI:   https://genuinesugarmummies.com
  * License:      GPL2
@@ -89,7 +89,17 @@ add_action('rest_api_init', function () {
 // =========================================================================
 // HELPER: Build a profile object from a WP_Post
 // =========================================================================
-function gs_api_build_profile($post) {
+function gs_api_profile_type($post_id) {
+    $category_slugs = [];
+    foreach (get_the_category($post_id) as $category) {
+        if (!empty($category->slug)) $category_slugs[] = $category->slug;
+    }
+    if (in_array('sugarmummies', $category_slugs, true)) return ['sugar_mummy', $category_slugs];
+    if (in_array('sugar-daddies', $category_slugs, true)) return ['sugar_daddy', $category_slugs];
+    return ['', $category_slugs];
+}
+
+function gs_api_build_profile($post, $include_content = false) {
     $post_id = $post->ID;
 
     // ---- Featured image (multiple fallbacks) ----
@@ -141,15 +151,14 @@ function gs_api_build_profile($post) {
     // Comment count
     $comment_count = (int) get_comments_number($post_id);
 
-    // Tags
-    $tags = wp_get_post_tags($post_id, ['fields' => 'names']);
+    list($profile_type, $category_slugs) = gs_api_profile_type($post_id);
 
     return [
         'id'                 => $post_id,
         'title'              => get_the_title($post_id),
         'slug'               => $post->post_name,
         'excerpt'            => $excerpt,
-        'content'            => apply_filters('the_content', $post->post_content),
+        'content'            => $include_content ? apply_filters('the_content', $post->post_content) : '',
         'date'               => $post->post_date,
         'date_gmt'           => $post->post_date_gmt,
         'link'               => get_permalink($post_id),
@@ -157,7 +166,8 @@ function gs_api_build_profile($post) {
         'featured_image_url' => $image_url,
         'imageUrl'           => $image_url,
         'comment_count'      => $comment_count,
-        'tags'               => $tags,
+        'profile_type'       => $profile_type,
+        'category_slugs'     => $category_slugs,
     ];
 }
 
@@ -171,6 +181,7 @@ function gs_api_get_profiles(WP_REST_Request $request) {
     $query = new WP_Query([
         'post_type'      => 'post',
         'post_status'    => 'publish',
+        'category_name'  => 'sugarmummies,sugar-daddies',
         'paged'          => $page,
         'posts_per_page' => $per_page,
         'orderby'        => 'date',
@@ -202,7 +213,15 @@ function gs_api_get_single_profile(WP_REST_Request $request) {
         return new WP_REST_Response(['error' => 'Profile not found'], 404);
     }
 
-    return new WP_REST_Response(gs_api_build_profile($post), 200);
+    if ($post->post_type !== 'post') {
+        return new WP_REST_Response(['error' => 'Profile not found'], 404);
+    }
+    list($profile_type) = gs_api_profile_type($post_id);
+    if (!$profile_type) {
+        return new WP_REST_Response(['error' => 'Profile not found'], 404);
+    }
+
+    return new WP_REST_Response(gs_api_build_profile($post, true), 200);
 }
 
 // =========================================================================

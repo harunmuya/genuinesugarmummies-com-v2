@@ -1,6 +1,6 @@
 ﻿const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Genuine Sugar Mummies <feedback@genuinesugarmummies.com>';
-const BRAND_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://genuinesugarmummies.com';
-const PUBLIC_ASSET_URL = process.env.NEXT_PUBLIC_ASSET_URL || 'https://genuinesugarmummies-com-v2.vercel.app';
+const BRAND_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.genuinesugarmummies.com';
+const PUBLIC_ASSET_URL = process.env.NEXT_PUBLIC_ASSET_URL || BRAND_URL;
 const LOGO_URL = process.env.EMAIL_LOGO_URL || `${PUBLIC_ASSET_URL.replace(/\/$/, '')}/gs-logo.png`;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || PUBLIC_ASSET_URL || BRAND_URL).replace(/\/$/, '');
 
@@ -100,10 +100,10 @@ export function emailHtml(title, body, options = {}) {
     const safeBadge = escapeHtml(options.badge || 'Official account notice');
     const safeOnlineName = escapeHtml(options.onlineName || options.hostName || '');
     const action = options.actionUrl && options.actionLabel
-        ? `<a href="${escapeHtml(appLink(options.actionUrl))}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:900;border-radius:14px;padding:13px 18px;margin-top:10px;box-shadow:0 10px 24px rgba(15,118,110,.22)">${escapeHtml(options.actionLabel)}</a>`
+        ? `<a href="${escapeHtml(appLink(options.actionUrl))}" style="display:inline-block;background:#c40042;color:#ffffff;text-decoration:none;font-weight:900;border-radius:12px;padding:13px 18px;margin-top:10px;box-shadow:0 10px 24px rgba(196,0,66,.2)">${escapeHtml(options.actionLabel)}</a>`
         : '';
     const secondaryAction = options.secondaryActionUrl && options.secondaryActionLabel
-        ? `<a href="${escapeHtml(appLink(options.secondaryActionUrl))}" style="display:inline-block;color:#0f766e;text-decoration:none;font-weight:800;margin-left:12px;margin-top:10px">${escapeHtml(options.secondaryActionLabel)}</a>`
+        ? `<a href="${escapeHtml(appLink(options.secondaryActionUrl))}" style="display:inline-block;color:#c40042;text-decoration:none;font-weight:800;margin-left:12px;margin-top:10px">${escapeHtml(options.secondaryActionLabel)}</a>`
         : '';
     const accountBlock = options.accountName || options.accountEmail || options.onlineName
         ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px">
@@ -112,7 +112,7 @@ export function emailHtml(title, body, options = {}) {
                         <p style="margin:0 0 6px;color:#64748b;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em">${safeBadge}</p>
                         <p style="margin:0;color:#0f172a;font-size:15px;font-weight:900">Account: ${safeAccountName}</p>
                         ${safeAccountEmail ? `<p style="margin:4px 0 0;color:#64748b;font-size:12px">${safeAccountEmail}</p>` : ''}
-                        ${safeOnlineName ? `<p style="margin:10px 0 0;color:#0f766e;font-size:13px;font-weight:900">Online now: ${safeOnlineName}</p>` : ''}
+                        ${safeOnlineName ? `<p style="margin:10px 0 0;color:#c40042;font-size:13px;font-weight:900">Online now: ${safeOnlineName}</p>` : ''}
                     </td>
                 </tr>
             </table>`
@@ -125,15 +125,15 @@ export function emailHtml(title, body, options = {}) {
 
     return `
         <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${preview}</div>
-        <div style="margin:0;padding:0;background:#eef8f6;font-family:Arial,Helvetica,sans-serif;color:#111827">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef8f6;padding:28px 12px">
+        <div style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#111827">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:28px 12px">
                 <tr>
                     <td align="center">
-                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #dbeafe;border-radius:22px;overflow:hidden;box-shadow:0 18px 48px rgba(15,118,110,0.16)">
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #e4e4e7;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(24,24,27,0.12)">
                             <tr>
-                                <td style="padding:26px 24px 18px;background:linear-gradient(135deg,#042f2e,#0f766e 58%,#f59e0b);color:#ffffff">
+                                <td style="padding:26px 24px 18px;background:linear-gradient(135deg,#09090b,#262626 72%,#9f1239);color:#ffffff">
                                     <img src="${escapeHtml(LOGO_URL)}" alt="Genuine Sugar Mummies" width="92" style="display:block;width:92px;height:auto;margin:0 auto 12px" />
-                                    <p style="margin:0 0 7px;text-align:center;color:#ccfbf1;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.12em">Genuine Sugar Mummies</p>
+                                    <p style="margin:0 0 7px;text-align:center;color:#fda4af;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.12em">Genuine Sugarmummies</p>
                                     <h1 style="font-size:25px;line-height:1.2;margin:0;text-align:center;color:#ffffff;font-weight:900">${safeTitle}</h1>
                                 </td>
                             </tr>

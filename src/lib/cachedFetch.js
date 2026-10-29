@@ -83,7 +83,7 @@ export function clearCache(prefix) {
 /** How long each kind of read stays usable, in one place. */
 export const TTL = {
     /** Member directory. The 240 row payload shared by three screens. */
-    MEMBERS: 90_000,
+    MEMBERS: 15_000,
     /** Decorative strips. Nothing breaks if these are a minute stale. */
     STRIP: 120_000,
     /** Live streams, where being a little behind is obvious to the user. */

@@ -13,7 +13,8 @@ export async function GET() {
             .in('id', ['basic', 'silver', 'gold'])
             .order('sort_order', { ascending: true });
         if (error || !data?.length) return NextResponse.json({ ok: true, packages: defaultPackageTiers() });
-        return NextResponse.json({ ok: true, packages: data });
+        const packages = data.map((tier) => tier.id === 'basic' ? { ...tier, price_ksh: 750 } : tier);
+        return NextResponse.json({ ok: true, packages });
     } catch {
         return NextResponse.json({ ok: true, packages: defaultPackageTiers() });
     }

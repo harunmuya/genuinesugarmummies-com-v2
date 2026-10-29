@@ -82,7 +82,7 @@ export default function CommentForm({ profile, onClose }) {
                     {!isLoggedIn ? (
                         /* ---- Must be logged in ---- */
                         <div className="text-center py-8 space-y-4">
-                            <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)' }}>
+                            <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center" style={{ background: 'var(--color-primary-soft)' }}>
                                 <LogIn size={28} className="text-primary" />
                             </div>
                             <h4 className="text-lg font-bold text-text-primary">Login Required</h4>

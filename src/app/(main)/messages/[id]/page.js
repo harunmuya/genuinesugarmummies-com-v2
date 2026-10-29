@@ -250,7 +250,7 @@ export default function MessageThreadPage({ params }) {
                     <p className="text-xs text-text-muted">Sent to {giftBurst.receiver}</p>
                 </div>
             </div>}
-            <header className="sticky top-0 z-20 flex items-center gap-3 p-3 backdrop-blur-xl" style={{ background: 'rgba(255,255,255,0.92)', borderBottom: '1px solid rgba(15,118,110,0.12)' }}>
+            <header className="sticky top-0 z-20 flex items-center gap-3 p-3 backdrop-blur-xl" style={{ background: 'var(--color-header-bg)', borderBottom: 'var(--card-border)' }}>
                 <button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center" aria-label="Back"><ArrowLeft size={19} /></button>
                 <div className="relative">
                     <UserAvatar name={peer?.display_name || 'Member'} src={peerPhoto} size={44} />

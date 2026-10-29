@@ -32,6 +32,15 @@ import { createClient } from '@supabase/supabase-js';
 const DRY_RUN = process.argv.includes('--dry-run');
 const PAGE = 500;
 
+// Most tables use `id`; these tables use their declared primary keys instead.
+const CONFLICT_COLUMNS = {
+    user_settings: 'user_id',
+    gift_wallet: 'user_id',
+    money_wallet: 'user_id',
+    credit_wallet: 'user_id',
+    live_viewers: 'stream_id,user_id',
+};
+
 /*
   Dependency order, generated from the migrations by scripts/build-migrate-list.py
   rather than written by hand.
@@ -44,6 +53,11 @@ const PAGE = 500;
 */
 const TABLES = [
     'users',
+    'profile_views',
+    'profile_boosts',
+    'user_stories',
+    'story_views',
+    'story_likes',
     'user_follows',
     'live_streams',
     'live_viewers',
@@ -52,7 +66,6 @@ const TABLES = [
     'direct_conversations',
     'direct_messages',
     'notifications',
-    'profile_views',
     'member_likes',
     'gifts',
     'sent_gifts',
@@ -64,10 +77,18 @@ const TABLES = [
     'auto_messages',
     'email_queue',
     'user_badges',
-    'user_settings',
-    'user_notifications',
+    'package_tiers',
     'conversations',
     'messages',
+    'user_terms_acceptances',
+    'profile_completion_reminders',
+    'admin_attention_items',
+    'payment_provider_configs',
+    'payment_events',
+    'package_usage_events',
+    'system_health_events',
+    'user_settings',
+    'user_notifications',
     'message_attachments',
     'voice_notes',
     'call_sessions',
@@ -79,7 +100,6 @@ const TABLES = [
     'credit_wallet',
     'wallet_transactions',
     'push_subscriptions',
-    'package_tiers',
     'package_requests',
     'member_messages',
     'member_gifts',
@@ -100,6 +120,7 @@ const TABLES = [
     'saved_profiles',
     'matches',
     'ticket_messages',
+    'auth_attempts',
     'call_events',
     'user_gift_inventory',
     'email_outbox',
@@ -164,7 +185,9 @@ async function writeAll(table, rows) {
         const batch = rows.slice(i, i + PAGE);
         // Upsert on the primary key: original ids are preserved, and a rerun
         // after a failure does not duplicate anything.
-        const { error } = await to.from(table).upsert(batch, { onConflict: 'id' });
+        const { error } = await to.from(table).upsert(batch, {
+            onConflict: CONFLICT_COLUMNS[table] || 'id',
+        });
         if (error) throw new Error(`${table}: ${error.message}`);
         written += batch.length;
     }

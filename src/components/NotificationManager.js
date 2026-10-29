@@ -154,7 +154,7 @@ export default function NotificationManager() {
                             title,
                             body: body || '',
                             largeIcon: icon || '/icons/icon-192.png',
-                            iconColor: '#0F766E',
+                            iconColor: '#E9034F',
                             extra: { url: '/alerts', count: badgeCount, label: formatBadge(badgeCount) },
                         }],
                     }).catch(() => {});

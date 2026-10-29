@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, User, ArrowRight, Heart, Gem, Users, LogIn, UserPlus, LockKeyhole, KeyRound, ShieldCheck, Camera, AtSign, Calendar, MapPin, Phone, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Mail, User, ArrowRight, Heart, Gem, Users, LockKeyhole, ShieldCheck, Camera, AtSign, Calendar, MapPin, Phone, FileText, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/Logo';
 
 const PREFERENCES = [
     { value: 'sugar_mummy_looking_for_toyboy', label: 'I am a Sugar Mummy', desc: 'Looking for a sugar guy / toyboy', icon: Heart, color: '#E11D48' },
-    { value: 'sugar_daddy_looking_for_mistress', label: 'I am a Sugar Daddy', desc: 'Looking for an adult mistress', icon: Gem, color: '#0EA5E9' },
-    { value: 'mistress_looking_for_sugar_daddy', label: 'I am a Mistress', desc: 'Looking for a sugar daddy', icon: Users, color: '#0F766E' },
+    { value: 'sugar_daddy_looking_for_mistress', label: 'I am a Sugar Daddy', desc: 'Looking for an adult mistress', icon: Gem, color: '#E9034F' },
+    { value: 'mistress_looking_for_sugar_daddy', label: 'I am a Mistress', desc: 'Looking for a sugar daddy', icon: Users, color: '#E9034F' },
     { value: 'toyboy_looking_for_sugar_mummy', label: 'I am a Sugar Guy / Toyboy', desc: 'Looking for a sugar mummy', icon: Heart, color: '#F59E0B' },
 ];
 
@@ -18,8 +18,8 @@ const LEGAL_LINKS = [
     { href: '/terms', label: 'Terms & Conditions' },
     { href: '/privacy', label: 'Privacy' },
     { href: '/safety', label: 'Safety' },
-    { href: '/community-guidelines', label: 'Rules' },
-    { href: '/contact', label: 'Contact' },
+    { href: '/community-guidelines', label: 'Community Guidelines' },
+    { href: '/contact#report', label: 'Report abuse or a safety issue' },
 ];
 
 function isComplete(account) {
@@ -66,7 +66,7 @@ export default function LoginPage() {
     const [phone, setPhone] = useState('');
     const [bio, setBio] = useState('');
     const [selectedPreference, setSelectedPreference] = useState('sugar_mummy_looking_for_toyboy');
-    const [step, setStep] = useState(1);
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const [resetSent, setResetSent] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -180,27 +180,15 @@ export default function LoginPage() {
         }
     }
 
-    function handleCreateEmail(event) {
+    async function handleCreateAccount(event) {
         event.preventDefault();
         setError('');
         setNotice('');
         if (!validEmail(email.trim())) { setError('Please enter a valid email.'); return; }
         if (!validPassword(password)) { setError('Create a password with at least 6 characters.'); return; }
-        setStep(2);
-    }
-
-    function handleProfileSubmit(event) {
-        event.preventDefault();
-        setError('');
-        setNotice('');
         const message = validateProfileStep();
         if (message) { setError(message); return; }
-        setStep(3);
-    }
-
-    async function handleCreateAccount() {
-        const message = validateProfileStep();
-        if (message) { setStep(2); setError(message); return; }
+        if (!termsAccepted) { setError('Confirm that you are 18 or older and accept the Terms and Privacy Policy.'); return; }
         setLoading(true);
         setError('');
         setNotice('');
@@ -259,7 +247,6 @@ export default function LoginPage() {
 
     function switchMode(nextMode) {
         setMode(nextMode);
-        setStep(1);
         setResetSent(false);
         setError('');
         setNotice('');
@@ -267,107 +254,110 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-dvh flex flex-col app-shell">
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center pt-12 pb-5 px-6">
-                <Logo size={76} />
-                <p className="text-sm text-text-secondary mt-3 text-center max-w-xs">Sign in, create your profile, or reset your password.</p>
+            <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center pt-8 pb-5 px-6">
+                <Logo size={68} />
+                <p className="text-sm text-text-secondary mt-3 text-center max-w-sm">A private account for adults who choose to meet through the desk.</p>
             </motion.div>
 
-            <div className="px-6 max-w-md mx-auto w-full pb-8">
-                <div className="grid grid-cols-3 gap-2 mb-5 rounded-2xl p-1 shadow-card" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
-                    <button type="button" onClick={() => switchMode('signin')} className={`rounded-xl py-3 text-xs font-black flex items-center justify-center gap-1 ${mode === 'signin' ? 'gradient-primary text-white' : 'text-text-secondary'}`}><LogIn size={15} /> Login</button>
-                    <button type="button" onClick={() => switchMode('signup')} className={`rounded-xl py-3 text-xs font-black flex items-center justify-center gap-1 ${mode === 'signup' ? 'gradient-primary text-white' : 'text-text-secondary'}`}><UserPlus size={15} /> Sign Up</button>
-                    <button type="button" onClick={() => switchMode('forgot')} className={`rounded-xl py-3 text-xs font-black flex items-center justify-center gap-1 ${mode === 'forgot' ? 'gradient-primary text-white' : 'text-text-secondary'}`}><KeyRound size={15} /> Reset</button>
-                </div>
-
+            <div className="px-5 max-w-xl mx-auto w-full pb-10">
                 {notice && <p className="mb-4 rounded-2xl bg-success/10 text-success text-sm text-center font-bold p-3">{notice}</p>}
                 {error && <p className="mb-4 rounded-2xl bg-danger/10 text-danger text-sm text-center font-bold p-3">{error}</p>}
 
                 {mode === 'signin' && (
-                    <form onSubmit={handleExistingSubmit} className="space-y-4">
-                        <Field icon={Mail} value={email} onChange={(value) => { setEmail(value); setError(''); }} placeholder="Email address" type="email" autoFocus />
-                        <Field icon={LockKeyhole} value={password} onChange={(value) => { setPassword(value); setError(''); }} placeholder="Password" type="password" />
-                        <button disabled={loading} className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white gradient-primary text-base disabled:opacity-60">
+                    <section>
+                        <header className="mb-6">
+                            <p className="text-xs font-extrabold uppercase tracking-wider text-primary">Member access</p>
+                            <h1 className="mt-1 text-2xl font-extrabold text-text-primary">Sign in</h1>
+                            <p className="mt-2 text-sm leading-relaxed text-text-secondary">Use the email and password linked to your account.</p>
+                        </header>
+                        <form onSubmit={handleExistingSubmit} className="space-y-4">
+                            <Field icon={Mail} value={email} onChange={(value) => { setEmail(value); setError(''); }} placeholder="Email address" type="email" autoFocus />
+                            <Field icon={LockKeyhole} value={password} onChange={(value) => { setPassword(value); setError(''); }} placeholder="Password" type="password" />
+                            <button disabled={loading} className="w-full min-h-12 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white gradient-primary text-base disabled:opacity-60">
                             {loading ? <Spinner /> : <>Login <ArrowRight size={20} /></>}
-                        </button>
-                        <button type="button" onClick={() => switchMode('forgot')} className="w-full py-2 text-xs font-bold text-primary">Forgot password?</button>
-                    </form>
+                            </button>
+                        </form>
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
+                            <button type="button" onClick={() => switchMode('forgot')} className="font-bold text-primary hover:underline">Forgot password?</button>
+                            <p className="text-text-secondary">New here? <button type="button" onClick={() => switchMode('signup')} className="font-extrabold text-primary hover:underline">Create an account</button></p>
+                        </div>
+                    </section>
                 )}
 
                 {mode === 'forgot' && (
-                    <form onSubmit={resetSent ? handleResetPassword : handleSendReset} className="space-y-4">
-                        <Field icon={Mail} value={email} onChange={(value) => { setEmail(value); setError(''); }} placeholder="Email on your account" type="email" autoFocus />
-                        {resetSent && <Field icon={ShieldCheck} value={resetCode} onChange={(value) => { setResetCode(value.replace(/\D/g, '').slice(0, 6)); setError(''); }} placeholder="6-digit reset code" inputMode="numeric" />}
-                        {resetSent && <Field icon={LockKeyhole} value={newPassword} onChange={(value) => { setNewPassword(value); setError(''); }} placeholder="New password" type="password" />}
-                        <button disabled={loading} className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white gradient-primary text-base disabled:opacity-60">
-                            {loading ? <Spinner /> : resetSent ? <>Reset Password <ArrowRight size={20} /></> : <>Send Reset Code <ArrowRight size={20} /></>}
-                        </button>
-                        {resetSent && <button type="button" onClick={handleSendReset} className="w-full py-2 text-xs font-bold text-primary">Send a new code</button>}
-                    </form>
+                    <section>
+                        <header className="mb-6">
+                            <p className="text-xs font-extrabold uppercase tracking-wider text-primary">Account recovery</p>
+                            <h1 className="mt-1 text-2xl font-extrabold text-text-primary">Reset your password</h1>
+                            <p className="mt-2 text-sm leading-relaxed text-text-secondary">We will send a one-time reset code to the email on your account.</p>
+                        </header>
+                        <form onSubmit={resetSent ? handleResetPassword : handleSendReset} className="space-y-4">
+                            <Field icon={Mail} value={email} onChange={(value) => { setEmail(value); setError(''); }} placeholder="Email on your account" type="email" autoFocus />
+                            {resetSent && <Field icon={ShieldCheck} value={resetCode} onChange={(value) => { setResetCode(value.replace(/\D/g, '').slice(0, 6)); setError(''); }} placeholder="6-digit reset code" inputMode="numeric" />}
+                            {resetSent && <Field icon={LockKeyhole} value={newPassword} onChange={(value) => { setNewPassword(value); setError(''); }} placeholder="New password" type="password" />}
+                            <button disabled={loading} className="w-full min-h-12 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white gradient-primary text-base disabled:opacity-60">
+                                {loading ? <Spinner /> : resetSent ? <>Save new password <ArrowRight size={20} /></> : <>Send reset code <ArrowRight size={20} /></>}
+                            </button>
+                            {resetSent && <button type="button" onClick={handleSendReset} className="w-full py-2 text-sm font-bold text-primary">Send another code</button>}
+                        </form>
+                        <p className="mt-5 text-sm text-text-secondary">Remembered it? <button type="button" onClick={() => switchMode('signin')} className="font-extrabold text-primary hover:underline">Back to sign in</button></p>
+                    </section>
                 )}
 
                 {mode === 'signup' && (
-                    <AnimatePresence mode="wait">
-                        {step === 1 ? (
-                            <motion.form key="create1" onSubmit={handleCreateEmail} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-                                <Field icon={Mail} value={email} onChange={(value) => { setEmail(value); setError(''); }} placeholder="Your real email address" type="email" autoFocus />
+                    <section>
+                        <header className="mb-6">
+                            <p className="text-xs font-extrabold uppercase tracking-wider text-primary">Join the community</p>
+                            <h1 className="mt-1 text-2xl font-extrabold text-text-primary">Create your account</h1>
+                            <p className="mt-2 text-sm leading-relaxed text-text-secondary">All fields are completed here. Your selected profile category cannot be changed after registration.</p>
+                        </header>
+                        <form onSubmit={handleCreateAccount} className="space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field icon={Mail} value={email} onChange={(value) => { setEmail(value); setError(''); }} placeholder="Email address" type="email" autoFocus />
                                 <Field icon={LockKeyhole} value={password} onChange={(value) => { setPassword(value); setError(''); }} placeholder="Create password" type="password" />
-                                <button className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white gradient-primary text-base">Continue <ArrowRight size={20} /></button>
-                            </motion.form>
-                        ) : step === 2 ? (
-                            <motion.form key="create2" onSubmit={handleProfileSubmit} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field icon={User} value={displayName} onChange={(value) => { setDisplayName(value); setError(''); }} placeholder="Display name" />
+                                <Field icon={AtSign} value={username} onChange={(value) => { setUsernameTouched(true); setUsername(makeUsername(value)); setError(''); }} placeholder="Username (3-20 characters)" />
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field icon={Calendar} value={age} onChange={(value) => { setAge(value.replace(/\D/g, '').slice(0, 2)); setError(''); }} placeholder="Age (18+)" inputMode="numeric" />
+                                <Field icon={Phone} value={phone} onChange={(value) => { setPhone(cleanPhone(value)); setError(''); }} placeholder="Phone number" type="tel" />
+                            </div>
+                            <Field icon={MapPin} value={location} onChange={(value) => { setLocation(value); setError(''); }} placeholder="City or area" />
+                            <label className="block">
+                                <span className="mb-2 block text-sm font-bold text-text-secondary">Your profile category</span>
+                                <span className="relative block">
+                                    <Users size={19} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+                                    <select value={selectedPreference} onChange={(event) => setSelectedPreference(event.target.value)} className="w-full appearance-none rounded-xl py-4 pl-12 pr-11 text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                                        {PREFERENCES.map((preference) => <option key={preference.value} value={preference.value}>{preference.label} - {preference.desc}</option>)}
+                                    </select>
+                                    <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-muted" />
+                                </span>
+                            </label>
+                            <TextAreaField icon={FileText} value={bio} onChange={(value) => { setBio(value.slice(0, 240)); setError(''); }} placeholder="A short introduction (at least 12 characters)" />
+                            <div>
                                 <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePhoto} />
-                                <button type="button" onClick={() => photoInputRef.current?.click()} className="w-full rounded-2xl p-4 flex items-center gap-4 text-left shadow-card" style={{ background: 'var(--color-bg-card)', border: profilePhoto ? '2px solid rgba(14,143,131,0.40)' : '2px dashed rgba(14,143,131,0.35)' }}>
-                                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-                                        {profilePhoto ? <img src={profilePhoto} alt="" className="w-full h-full object-cover" /> : <Camera size={28} className="text-primary" />}
-                                    </div>
-                                    <div>
-                                        <p className="font-black text-text-primary">{profilePhoto ? 'Profile photo added' : 'Add profile photo'}</p>
-                                        <p className="text-xs text-text-muted mt-1">Required for a real dating profile</p>
-                                    </div>
+                                <button type="button" onClick={() => photoInputRef.current?.click()} className="w-full min-h-20 rounded-xl px-4 py-3 flex items-center gap-4 text-left" style={{ background: 'var(--color-bg-card)', border: profilePhoto ? '1px solid var(--color-primary)' : '1px dashed color-mix(in srgb, var(--color-primary) 48%, transparent)' }}>
+                                    <span className="w-12 h-12 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+                                        {profilePhoto ? <img src={profilePhoto} alt="Selected profile photo preview" width="48" height="48" className="w-full h-full object-cover" /> : <Camera size={23} className="text-primary" />}
+                                    </span>
+                                    <span><span className="block font-bold text-text-primary">{profilePhoto ? 'Profile photo selected' : 'Choose a profile photo'}</span><span className="mt-1 block text-xs leading-relaxed text-text-muted">Use an image you have permission to share. Review cannot guarantee identity or image origin.</span></span>
                                 </button>
-                                <Field icon={User} value={displayName} onChange={(value) => { setDisplayName(value); setError(''); }} placeholder="Real first name or public name" autoFocus />
-                                <Field icon={AtSign} value={username} onChange={(value) => { setUsernameTouched(true); setUsername(makeUsername(value)); setError(''); }} placeholder="Username" />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Field icon={Calendar} value={age} onChange={(value) => { setAge(value.replace(/\D/g, '').slice(0, 2)); setError(''); }} placeholder="Age" inputMode="numeric" />
-                                    <Field icon={Phone} value={phone} onChange={(value) => { setPhone(cleanPhone(value)); setError(''); }} placeholder="Phone" type="tel" />
-                                </div>
-                                <Field icon={MapPin} value={location} onChange={(value) => { setLocation(value); setError(''); }} placeholder="City or area" />
-                                <TextAreaField icon={FileText} value={bio} onChange={(value) => { setBio(value.slice(0, 240)); setError(''); }} placeholder="Short bio: who you are and what you want" />
-                                <button className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white gradient-primary text-base">Continue <ArrowRight size={20} /></button>
-                                <button type="button" onClick={() => setStep(1)} className="w-full py-3 text-sm font-medium text-text-muted">Back</button>
-                            </motion.form>
-                        ) : (
-                            <motion.div key="create3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-                                <div className="space-y-3">
-                                    {PREFERENCES.map((pref) => {
-                                        const Icon = pref.icon;
-                                        const selected = selectedPreference === pref.value;
-                                        return (
-                                            <button type="button" key={pref.value} onClick={() => setSelectedPreference(pref.value)} className="w-full flex items-center gap-4 p-4 rounded-2xl transition-all shadow-card" style={{ background: selected ? `${pref.color}12` : 'var(--color-bg-card)', border: `2px solid ${selected ? pref.color : 'rgba(14,143,131,0.10)'}` }}>
-                                                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${pref.color}18` }}><Icon size={24} style={{ color: pref.color }} /></div>
-                                                <div className="flex-1 text-left"><p className="font-bold text-text-primary">{pref.label}</p><p className="text-xs text-text-muted">{pref.desc}</p></div>
-                                                <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: selected ? pref.color : '#d1d5db', background: selected ? pref.color : 'transparent' }} />
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <button type="button" onClick={handleCreateAccount} disabled={loading} className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white gradient-primary text-base disabled:opacity-60">{loading ? <Spinner /> : <>Create Account <ArrowRight size={20} /></>}</button>
-                                <button type="button" onClick={() => setStep(2)} className="w-full py-3 text-sm font-medium text-text-muted">Back</button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                            </div>
+                            <label className="flex items-start gap-3 rounded-xl p-3 text-sm leading-relaxed text-text-secondary" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                                <input type="checkbox" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); setError(''); }} className="mt-1 accent-primary" />
+                                <span>I confirm that I am 18 or older and accept the <Link href="/terms" className="font-bold text-primary underline">Terms</Link> and <Link href="/privacy" className="font-bold text-primary underline">Privacy Policy</Link>.</span>
+                            </label>
+                            <button disabled={loading} className="w-full min-h-12 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white gradient-primary text-base disabled:opacity-60">{loading ? <Spinner /> : <>Create account <ArrowRight size={20} /></>}</button>
+                        </form>
+                        <p className="mt-5 text-center text-sm text-text-secondary">Already registered? <button type="button" onClick={() => switchMode('signin')} className="font-extrabold text-primary hover:underline">Sign in</button></p>
+                    </section>
                 )}
 
-                <div className="mt-6 space-y-3 text-center">
-                    <div className="grid grid-cols-3 gap-2 text-[11px] font-black">
-                        <span className="rounded-full bg-success/10 px-2 py-1 text-success">18+ only</span>
-                        <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">Manual verification</span>
-                        <span className="rounded-full bg-danger/10 px-2 py-1 text-danger">Report abuse</span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-text-muted">
-                        By logging in or creating an account, you agree to the website terms and safety rules. Verification badges are manually approved or rejected by admin.
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] font-bold">
+                <div className="mt-8 border-t pt-5 text-center" style={{ borderColor: 'var(--color-surface-light)' }}>
+                    <p className="mx-auto max-w-lg text-xs leading-relaxed text-text-muted"><Link href="/safety" className="font-bold text-primary hover:underline">Adults aged 18+ only · Safety guidance</Link><br />Profiles, messages, and payment requests are subject to review and safety rules. A profile or badge is not a guarantee of identity, compatibility, or outcome.</p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs font-bold">
                         {LEGAL_LINKS.map((item) => (
                             <Link key={item.href} href={item.href} className="text-primary hover:underline">
                                 {item.label}

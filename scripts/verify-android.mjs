@@ -150,7 +150,11 @@ console.log('\nA release installs over what members already have');
         `${builtId} — the two apps must never share an applicationId`);
 
     const APK = join('public', 'downloads', 'genuine-sugar-mummies.apk');
-    if (!existsSync(APK)) {
+    const versionRoute = readFileSync(join('src', 'app', 'api', 'app-version', 'route.js'), 'utf8');
+    const releaseAvailable = /available:\s*true/.test(versionRoute);
+    if (!releaseAvailable) {
+        console.log('  ..    APK release is disabled; existing artefact is not advertised and release checks are deferred');
+    } else if (!existsSync(APK)) {
         console.log('  ..    no APK in public/downloads, nothing to compare');
     } else {
         const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT

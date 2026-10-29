@@ -27,7 +27,7 @@ const DEFAULT_TIERS = {
     basic: {
         id: 'basic',
         name: 'Basic',
-        price_ksh: 650,
+        price_ksh: 750,
         phone_reveal: false,
         daily_message_limit: 30,
         daily_gift_limit: 10,

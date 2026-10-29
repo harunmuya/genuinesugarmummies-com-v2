@@ -230,12 +230,12 @@ export default function AdminPage() {
 
     if (!token) {
         return (
-            <main className="min-h-dvh flex items-center justify-center px-5" style={{ background: 'linear-gradient(180deg,#f5f3ff,#fff)' }}>
-                <form onSubmit={login} className="w-full max-w-sm rounded-2xl p-5 space-y-4" style={{ background: 'white', border: '1px solid rgba(124,58,237,.15)' }}>
+            <main className="min-h-dvh flex items-center justify-center bg-bg-dark px-5">
+                <form onSubmit={login} className="w-full max-w-sm rounded-2xl p-5 space-y-4" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                     <Logo size={48} />
                     <h1 className="text-xl font-black text-text-primary">Admin Login</h1>
-                    <input className="w-full rounded-xl px-3 py-3" style={{ border: '1px solid #ddd' }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-                    <input className="w-full rounded-xl px-3 py-3" style={{ border: '1px solid #ddd' }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" />
+                    <input className="w-full rounded-xl px-3 py-3 bg-bg-input text-text-primary" style={{ border: 'var(--card-border)' }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+                    <input className="w-full rounded-xl px-3 py-3 bg-bg-input text-text-primary" style={{ border: 'var(--card-border)' }} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" />
                     {error && <p className="text-sm text-danger">{error}</p>}
                     <button className="w-full rounded-xl py-3 text-white font-bold gradient-primary">Login</button>
                 </form>
@@ -433,15 +433,19 @@ export default function AdminPage() {
                             <AccountDetails account={request.account} fallback={request} label="Package request" />
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
-                                    <h2 className="font-black">{tierText(request.tier)} package</h2>
+                                    <h2 className="font-black">{String(request.note || '').startsWith('[GS_LOCAL_CONNECTION_OFFER_V1]') ? 'Local introduction offer' : `${tierText(request.tier)} package`}</h2>
                                     <p className="text-xs text-text-muted">KSh {request.amount_ksh} � {request.status} � {dateText(request.created_at)}</p>
                                     <p className="text-xs text-text-muted">Ref: {request.payment_reference || 'N/A'}</p>
                                     {request.note && <p className="text-xs text-text-secondary">Note: {request.note}</p>}
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => adminAction({ action: 'approve_package_request', requestId: request.id, userId: request.user_id, tier: request.tier }, 'Package approved')} className="px-3 py-2 rounded-xl text-xs font-black text-white bg-success">Approve</button>
+                                {request.status === 'pending' && <div className="flex gap-2">
+                                    <button onClick={() => {
+                                        const isOffer = String(request.note || '').startsWith('[GS_LOCAL_CONNECTION_OFFER_V1]');
+                                        const verified = window.confirm(`Have you independently verified transaction ${request.payment_reference || '(missing reference)'} for KSh ${request.amount_ksh} in the payment provider record? Only approve after confirming the recipient, amount and successful transfer.${isOffer ? '\n\nThis marks the local introduction offer as claimed; it does not activate a subscription.' : ''}`);
+                                        if (verified) adminAction({ action: 'approve_package_request', requestId: request.id, paymentVerified: true }, isOffer ? 'Local offer marked claimed after payment verification' : 'Package approved after payment verification');
+                                    }} className="px-3 py-2 rounded-xl text-xs font-black text-white bg-success">Verify & approve</button>
                                     <button onClick={() => adminAction({ action: 'reject_package_request', requestId: request.id }, 'Package rejected')} className="px-3 py-2 rounded-xl text-xs font-black text-white bg-danger">Reject</button>
-                                </div>
+                                </div>}
                             </div>
                         </article>
                     ))}

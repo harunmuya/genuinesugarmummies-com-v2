@@ -58,7 +58,7 @@ export function MenuRow({ icon: Icon, label, value, badge, href, onClick, tone }
             <span
                 aria-hidden
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                style={{ background: danger ? 'rgba(255,77,106,0.12)' : 'rgba(20,224,200,0.10)' }}
+                style={{ background: danger ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)' : 'var(--color-primary-soft)' }}
             >
                 <Icon size={18} className={danger ? 'text-danger' : 'text-primary'} />
             </span>

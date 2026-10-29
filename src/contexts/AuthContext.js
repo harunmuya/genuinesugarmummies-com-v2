@@ -63,64 +63,8 @@ const DEFAULT_SETTINGS = {
     showAge: true,
     emailNotifications: false,
     liveLocation: false,
-    darkMode: false,
+    darkMode: true,
 };
-
-// ==========================================
-// SMART MATCHING ALGORITHM
-// ==========================================
-function computeMatchScore(profile, user, settings) {
-    let score = 50; // Base score
-
-    // Verified profiles get a boost
-    if (profile.verified) score += 12;
-
-    // Profile completeness bonus
-    if (profile.imageUrl) score += 5;
-    if (profile.location) score += 4;
-    if (profile.excerpt) score += 3;
-    if (profile.age) score += 3;
-
-    // User engagement bonus (verified users match better)
-    if (user?.verification === 'verified') score += 8;
-
-    // Location proximity (if both have locations, boost when nearby)
-    if (profile.location && settings.liveLocation) {
-        const liveData = getStored(STORAGE_KEYS.LIVE_LOCATION);
-        if (liveData?.city && profile.location.toLowerCase().includes(liveData.city.toLowerCase())) {
-            score += 15; // Same city boost
-        }
-    }
-
-    // Time-based freshness — newer profiles score slightly higher
-    const profileAge = Date.now() - new Date(profile.date || Date.now()).getTime();
-    if (profileAge < 7 * 86400000) score += 5; // Less than 7 days old
-
-    // Deterministic component for consistency (using profile+user seed)
-    const seed = `${profile.wpId || ''}-${user?.id || 'guest'}`;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-        hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-    }
-    const jitter = (Math.abs(hash) % 20) - 10; // -10 to +10
-    score += jitter;
-
-    // Clamp to realistic range
-    return Math.max(60, Math.min(98, Math.round(score)));
-}
-
-function shouldMatchProfile(profile, user, settings) {
-    const score = computeMatchScore(profile, user, settings);
-    // Higher scores have higher match probability
-    const seed = `${profile.wpId}-${user?.id || 'guest'}-match`;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-        hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-    }
-    const roll = Math.abs(hash) % 100;
-    // ~55% base chance, boosted by score
-    return roll < (score * 0.6);
-}
 
 // ==========================================
 // AI FACE ANALYSIS ENGINE
@@ -388,7 +332,19 @@ export function AuthProvider({ children }) {
                     body: JSON.stringify({ action: 'refresh_account', memberId: user.id, email: user.email }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!alive || !res.ok || !data.member) return;
+                if (!alive) return;
+                if (res.status === 401) {
+                    setUser(null);
+                    setGuest(false);
+                    setStored(STORAGE_KEYS.USER, null);
+                    setStored(STORAGE_KEYS.GUEST, false);
+                    setLikes([]); setMatches([]); setPasses([]); setSaved([]); setMessages([]);
+                    setStored(STORAGE_KEYS.LIKES, []); setStored(STORAGE_KEYS.MATCHES, []);
+                    setStored(STORAGE_KEYS.PASSES, []); setStored(STORAGE_KEYS.SAVED, []);
+                    setStored(STORAGE_KEYS.MESSAGES, []);
+                    return;
+                }
+                if (!res.ok || !data.member) return;
                 const account = { ...user, ...accountFromMember(data.member, user.email) };
                 setUser(account);
                 setVerificationStatus(account.verification_status || null);
@@ -958,7 +914,7 @@ export function AuthProvider({ children }) {
                 addMessage({
                     type: 'gs_support', sender: 'GS Support', senderImage: '',
                     title: 'Welcome to GenuineSugarMummies.com!',
-                    body: `Hi ${merged.display_name}! Welcome to GenuineSugarMummies.com — your premium connection platform. Browse profiles, like & match, then request hookup connections. Admin Mary G on Telegram @GSADMINMARYGAGENCY facilitates all connections. Enjoy!`,
+                    body: `Hi ${merged.display_name}, welcome to the Genuine Sugar Mummies app. Complete your profile, review the community and safety guidance, and contact the desk if you need help. A match or introduction depends on availability and the free choice of the members involved.`,
                 });
             }, 2000);
         }
@@ -980,6 +936,13 @@ export function AuthProvider({ children }) {
         */
         clearCache();
         setStored(STORAGE_KEYS.SIGNED_OUT_UNTIL, Date.now() + 2 * 60 * 1000);
+        try {
+            await fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'logout' }),
+            });
+        } catch {}
         try {
             if (isSupabaseConfigured()) {
                 const supabase = createBrowserSupabaseClient();
@@ -1039,6 +1002,10 @@ export function AuthProvider({ children }) {
     function updateProfile(updates) {
         if (!user) return;
         const updated = { ...user, ...updates };
+        if (updates.looking_for && !updates.intent_summary) {
+            const category = String(user.profile_label || user.member_category || '').replace(/_/g, ' ');
+            updated.intent_summary = `I am a ${category || 'member'} looking for ${updates.looking_for}.`;
+        }
         if (updates.preference) {
             setPreference(updates.preference);
             setStored(STORAGE_KEYS.PREFERENCE, updates.preference);
@@ -1046,7 +1013,9 @@ export function AuthProvider({ children }) {
         setUser(updated);
         setStored(STORAGE_KEYS.USER, updated);
         logActivity('profile_update', { title: 'Profile updated', message: 'You updated your profile info' });
-        syncAccountToServer(updated);
+        syncAccountToServer(updated).then((synced) => {
+            if (synced && ('looking_for' in updates || 'show_in_public' in updates)) clearCache('/api/members');
+        });
         return updated;
     }
 
@@ -1167,10 +1136,6 @@ export function AuthProvider({ children }) {
             return 'failed';
         }
 
-        setVerificationStatus('pending_admin');
-        setStored(STORAGE_KEYS.VERIFICATION, 'pending_admin');
-        setStored(STORAGE_KEYS.VERIFICATION_SELFIE, selfieDataUrl.slice(0, 200));
-
         const updated = {
             ...user,
             verification_status: 'pending_admin',
@@ -1183,9 +1148,6 @@ export function AuthProvider({ children }) {
             phone,
             verification_submitted_at: new Date().toISOString(),
         };
-        setUser(updated);
-        setStored(STORAGE_KEYS.USER, updated);
-
         try {
             const res = await fetch('/api/members', {
                 method: 'POST',
@@ -1202,23 +1164,26 @@ export function AuthProvider({ children }) {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Verification submission failed.');
-            if (data.member) {
-                const synced = {
-                    ...updated,
-                    id: data.member.id || updated.id,
-                    verification_status: 'pending_admin',
-                    verified: false,
-                };
-                setUser(synced);
-                setStored(STORAGE_KEYS.USER, synced);
-            }
+            const synced = {
+                ...updated,
+                id: data.member?.id || updated.id,
+                verification_status: 'pending_admin',
+                verified: false,
+            };
+            setVerificationStatus('pending_admin');
+            setStored(STORAGE_KEYS.VERIFICATION, 'pending_admin');
+            setStored(STORAGE_KEYS.VERIFICATION_SELFIE, selfieDataUrl.slice(0, 200));
+            setUser(synced);
+            setStored(STORAGE_KEYS.USER, synced);
+            logActivity('profile_update', { title: 'Verification submitted', message: 'Your details are waiting for manual admin review.' });
+            addMessage({ type: 'verification', sender: 'GS Verification Team', senderImage: '', title: 'Manual Verification Pending', body: 'Your submission reached the review queue. Admin will review the documents before making a decision.' });
+            return 'pending_admin';
         } catch (error) {
-            addMessage({ type: 'verification', sender: 'GS Verification Team', senderImage: '', title: 'Saved Locally', body: 'Your verification request is saved on this device. Run the admin SQL if it does not appear in the control panel.' });
+            setVerificationStatus('failed');
+            setStored(STORAGE_KEYS.VERIFICATION, 'failed');
+            addMessage({ type: 'verification', sender: 'GS Verification Team', senderImage: '', title: 'Submission not received', body: error.message || 'The verification service could not save this request. Check your connection and try again.' });
+            return 'failed';
         }
-
-        logActivity('profile_update', { title: 'Verification submitted', message: 'Your selfie, ID/passport, and phone are waiting for manual admin approval.' });
-        addMessage({ type: 'verification', sender: 'GS Verification Team', senderImage: '', title: 'Manual Verification Pending', body: 'Admin will review your selfie, ID/passport, phone number, and approve your badge from the admin panel.' });
-        return 'pending_admin';
     }
     function clearVerification() {
         setVerificationStatus(null);
@@ -1234,35 +1199,40 @@ export function AuthProvider({ children }) {
     }, [settings.darkMode]);
 
     // ---- Settings ----
-    function updateSettings(updates) {
+    async function updateSettings(updates) {
+        const previous = settings;
         const updated = { ...settings, ...updates };
         setSettings(updated);
         setStored(STORAGE_KEYS.SETTINGS, updated);
 
-        if (user?.email || user?.id) {
-            fetch('/api/members', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'update_settings', memberId: user.id, email: user.email, settings: updated }),
-            })
-                .then((res) => res.json().catch(() => ({})).then((data) => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (ok && data.settings) applyRemoteSettings(data.settings);
-                })
-                .catch(() => {});
-        }
-
-        // Live location toggle
         if ('liveLocation' in updates) {
-            if (updates.liveLocation) {
-                startLiveLocation();
-            } else {
-                stopLiveLocation();
-            }
+            if (updates.liveLocation) startLiveLocation();
+            else stopLiveLocation();
         }
         if (updates.notifications === true && typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('gs-request-notifications'));
         }
+
+        if (user?.email || user?.id) {
+            try {
+                const res = await fetch('/api/members', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update_settings', memberId: user.id, email: user.email, settings: updated }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.settings) throw new Error(data.error || 'Could not save settings.');
+                applyRemoteSettings(data.settings);
+                if (['isPublic', 'showAge', 'showOnline'].some((key) => key in updates)) clearCache('/api/members');
+            } catch {
+                const rolledBack = { ...settings };
+                Object.keys(updates).forEach((key) => { rolledBack[key] = previous[key]; });
+                setSettings(rolledBack);
+                setStored(STORAGE_KEYS.SETTINGS, rolledBack);
+                return false;
+            }
+        }
+        return true;
     }
 
     // ---- Live Location ----
@@ -1361,8 +1331,8 @@ export function AuthProvider({ children }) {
         if (user?.id) {
             const memberId = profile?.id || (String(profile?.wpId || '').startsWith('member:') ? String(profile.wpId).slice(7) : null);
             const payload = memberId
-                ? { action: 'like', memberId, actorUserId: user.id, senderName: user.display_name || user.email, profileName: profile.name, profileImage: profile.imageUrl, score: profile.score }
-                : { action: 'record_interaction', actorUserId: user.id, profileKey: profile.wpId, kind: 'like', profileName: profile.name, profileImage: profile.imageUrl, source: profile.source || 'wp', score: profile.score };
+                ? { action: 'like', memberId, actorUserId: user.id, senderName: user.display_name || user.email, profileName: profile.name, profileImage: profile.imageUrl }
+                : { action: 'record_interaction', actorUserId: user.id, profileKey: profile.wpId, kind: 'like', profileName: profile.name, profileImage: profile.imageUrl, source: profile.source || 'wp' };
             const res = await fetch('/api/members', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1388,22 +1358,15 @@ export function AuthProvider({ children }) {
         return { ok: true, ...matchResult };
     }, [logActivity, user?.id, user?.display_name, user?.email]);
 
-    const addMatch = useCallback((profile, score = 85) => {
+    const addMatch = useCallback((profile) => {
         setMatches(prev => {
             if (prev.find(m => m.wpId === profile.wpId)) return prev;
-            const updated = [...prev, { ...profile, score, matchedAt: new Date().toISOString() }];
+            const updated = [...prev, { ...profile, matchedAt: new Date().toISOString() }];
             setStored(STORAGE_KEYS.MATCHES, updated);
             return updated;
         });
-        if (user?.id) {
-            fetch('/api/members', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'record_interaction', actorUserId: user.id, profileKey: profile.wpId, kind: 'match', profileName: profile.name, profileImage: profile.imageUrl, source: profile.source || '', score }),
-            }).catch(() => {});
-        }
-        logActivity('match', { title: `Matched with ${profile.name || 'someone'}!`, message: `${score}% compatibility`, image: profile.imageUrl, profileId: profile.wpId });
-    }, [logActivity, user?.id]);
+        logActivity('match', { title: `Matched with ${profile.name || 'someone'}!`, message: 'You both liked each other.', image: profile.imageUrl, profileId: profile.wpId });
+    }, [logActivity]);
 
     const addPass = useCallback(async (profileWpId) => {
         const memberId = String(profileWpId || '').startsWith('member:') ? String(profileWpId).slice(7) : '';
@@ -1425,7 +1388,7 @@ export function AuthProvider({ children }) {
             setStored(STORAGE_KEYS.PASSES, updated);
             return updated;
         });
-        return { ok: true, ...matchResult };
+        return { ok: true };
     }, [user?.id]);
 
     const isProfileSwiped = useCallback((wpId) => {
@@ -1475,8 +1438,8 @@ export function AuthProvider({ children }) {
         if (user?.id) {
             const memberId = profile?.id || (String(profile?.wpId || '').startsWith('member:') ? String(profile.wpId).slice(7) : null);
             const payload = memberId
-                ? { action: 'superlike', memberId, actorUserId: user.id, senderName: user.display_name || user.email, profileName: profile.name, profileImage: profile.imageUrl, score: profile.score }
-                : { action: 'record_interaction', actorUserId: user.id, profileKey: profile.wpId, kind: 'superlike', profileName: profile.name, profileImage: profile.imageUrl, source: profile.source || 'wp', score: profile.score };
+                ? { action: 'superlike', memberId, actorUserId: user.id, senderName: user.display_name || user.email, profileName: profile.name, profileImage: profile.imageUrl }
+                : { action: 'record_interaction', actorUserId: user.id, profileKey: profile.wpId, kind: 'superlike', profileName: profile.name, profileImage: profile.imageUrl, source: profile.source || 'wp' };
             const res = await fetch('/api/members', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1493,14 +1456,13 @@ export function AuthProvider({ children }) {
             return updated;
         });
         logActivity('like', { title: `You super liked ${profile.name || 'someone'}`, message: `${profile.location || ''} - Super Like!`, image: profile.imageUrl, profileId: profile.wpId });
-        return { ok: true };
+        return { ok: true, ...matchResult };
     }, [logActivity, user?.id, user?.display_name, user?.email]);
 
     // ---- Request Connection ----
     const requestConnection = useCallback((profileName, profileId) => {
-        logActivity('connection_request', { title: `Connection requested with ${profileName}`, message: 'Admin Mary G will facilitate on Telegram', profileId });
-        addMessage({ type: 'connection', sender: 'GS Support', senderImage: '', title: `Connection request sent for ${profileName}`, body: `Contact admin @GSADMINMARYGAGENCY on Telegram for faster response.` });
-    }, [logActivity, addMessage]);
+        logActivity('connection_request', { title: `Prepared a connection request for ${profileName}`, message: 'Continue in Telegram to send your message to the desk.', profileId });
+    }, [logActivity]);
 
     // ---- Log Message/View ----
     const logMessageSent = useCallback((profileName, profileImage) => {
@@ -1581,8 +1543,6 @@ export function AuthProvider({ children }) {
         addMessage, markMessagesRead,
         verifyProfile, clearVerification,
         deleteAccount,
-        // Algorithm exports
-        computeMatchScore, shouldMatchProfile,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS public.profile_views (
     UNIQUE(viewer_id, viewed_id)
 );
 
+-- A preceding migration may have created the legacy profile_views shape.
+ALTER TABLE public.profile_views ADD COLUMN IF NOT EXISTS viewer_id UUID REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE public.profile_views ADD COLUMN IF NOT EXISTS viewed_id UUID REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE public.profile_views ADD COLUMN IF NOT EXISTS viewed_at TIMESTAMPTZ DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS public.member_likes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     liker_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,

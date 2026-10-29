@@ -114,7 +114,7 @@ export default function IncomingCallManager() {
                         <div className="min-w-0 flex-1">
                             <p className="text-xs font-bold uppercase tracking-wide text-white/75">Incoming {isVideo ? 'video' : 'voice'} call</p>
                             <h2 className="truncate text-xl font-black">{caller.display_name || 'GS Member'}</h2>
-                            <p className="text-xs text-white/80">Answer inside GS App</p>
+                            <p className="text-xs text-white/80">Answer inside Genuine Sugarmummies</p>
                         </div>
                         {isVideo ? <Video size={24} /> : <PhoneCall size={24} />}
                     </div>

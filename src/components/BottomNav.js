@@ -21,26 +21,26 @@ function unreadValue(item) {
 
 export default function BottomNav() {
     const pathname = usePathname();
-    const { activity, messages } = useAuth();
-    const unreadAlerts = (activity || []).filter((item) => !item.read).length;
+    const { messages } = useAuth();
     const unreadMessages = (messages || []).reduce((total, item) => total + unreadValue(item), 0);
-    const totalUnread = unreadAlerts + unreadMessages;
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 glass" style={{ borderTop: '1px solid rgba(14,143,131,0.14)' }}>
+        <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 glass" style={{ borderTop: 'var(--card-border)' }} aria-label="Main navigation">
             <div className="app-main flex items-center justify-around py-2 px-3">
                 {navItems.map((item) => {
-                    const isActive = pathname?.startsWith(item.href);
+                    const isActive = item.href === '/discover'
+                        ? pathname === item.href
+                        : pathname === item.href || pathname?.startsWith(`${item.href}/`);
                     const Icon = item.icon;
-                    const showBadge = item.href === '/messages' && totalUnread > 0;
+                    const showBadge = item.href === '/messages' && unreadMessages > 0;
 
                     return (
-                        <Link key={item.href} href={item.href} className="relative flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all duration-300" style={isActive ? { background: 'rgba(15,118,110,0.1)' } : {}}>
+                        <Link key={item.href} href={item.href} aria-current={isActive ? 'page' : undefined} className="relative flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all duration-300" style={isActive ? { background: 'var(--color-primary-soft)' } : {}}>
                             <div className="relative">
                                 <Icon size={23} strokeWidth={isActive ? 2.5 : 1.7} className={`transition-colors duration-300 ${isActive ? 'text-primary' : 'text-text-secondary'}`} />
                                 {showBadge && (
-                                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[11px] font-bold text-white px-1" style={{ background: '#EC4899' }}>
-                                        {totalUnread > 99 ? '99+' : totalUnread}
+                                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[11px] font-bold text-white px-1" style={{ background: 'var(--color-primary)' }}>
+                                        {unreadMessages > 99 ? '99+' : unreadMessages}
                                     </span>
                                 )}
                                 {isActive && <motion.div layoutId="navIndicator" className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full gradient-primary" transition={{ type: 'spring', stiffness: 500, damping: 30 }} />}

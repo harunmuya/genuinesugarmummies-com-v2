@@ -6,8 +6,29 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE,
+    display_name TEXT,
+    avatar_url TEXT,
+    photos TEXT[] DEFAULT '{}',
+    bio TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    age INTEGER,
+    location TEXT DEFAULT '',
+    country TEXT DEFAULT '',
+    city TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    phone_number TEXT DEFAULT '',
+    profile_label TEXT DEFAULT 'member',
+    subscription_tier TEXT DEFAULT 'free',
+    verified BOOLEAN DEFAULT false,
+    verification_status TEXT DEFAULT 'unsubmitted',
+    show_in_public BOOLEAN DEFAULT false,
+    is_banned BOOLEAN DEFAULT false,
+    is_suspended BOOLEAN DEFAULT false,
+    total_profile_views INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    last_seen_at TIMESTAMPTZ DEFAULT now(),
+    last_seen TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.direct_conversations (

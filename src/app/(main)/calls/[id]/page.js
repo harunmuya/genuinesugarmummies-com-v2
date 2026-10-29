@@ -382,7 +382,7 @@ export default function CallRoomPage({ params }) {
                     <p className="text-sm text-white/75">{status}{['accepted', 'active'].includes(session?.status) ? ` · ${formatDuration(duration)}` : ''}</p>
                     {role === 'receiver' && session?.status === 'ringing' && <div className="mt-4 max-w-sm rounded-3xl bg-white/10 p-4 backdrop-blur-xl border border-white/15">
                         <p className="text-sm font-black">Incoming {callType === 'video' ? 'video' : 'voice'} call</p>
-                        <p className="mt-1 text-xs text-white/70">Answer inside GS App or decline the call. This call is handled through your app account and Supabase call records.</p>
+                <p className="mt-1 text-xs text-white/70">Answer inside Genuine Sugarmummies or decline the call. The call uses your account and the app's call signaling service.</p>
                         <div className="mt-4 flex gap-3">
                             <button onClick={declineIncoming} className="h-12 flex-1 rounded-2xl bg-danger font-black text-white">Decline</button>
                             <button onClick={acceptIncoming} className="h-12 flex-1 rounded-2xl bg-success font-black text-white">Accept</button>

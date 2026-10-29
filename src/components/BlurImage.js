@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 
 /**
  * BlurImage — lazy-loaded image with blur-up placeholder effect.
- * Uses purple-tinted placeholder for .com branding.
+ * Uses a restrained brand-tinted placeholder while the image loads.
  */
 export default function BlurImage({
     src,
@@ -20,7 +20,7 @@ export default function BlurImage({
     const imgRef = useRef(null);
 
     // Purple-tinted placeholder for .com branding
-    const placeholderBg = 'linear-gradient(135deg, #ede9fe 0%, #f3e8ff 50%, #fce7f3 100%)';
+    const placeholderBg = 'linear-gradient(135deg, #27272a 0%, #18181b 55%, #3b0b1b 100%)';
 
     if (error || !src) {
         return (
@@ -35,7 +35,7 @@ export default function BlurImage({
                 }}
                 {...props}
             >
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.5">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff6b94" strokeWidth="1.5">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     <circle cx="8.5" cy="8.5" r="1.5" />
                     <polyline points="21 15 16 10 5 21" />

@@ -1,104 +1,111 @@
 ﻿@import "tailwindcss";
 
-/* ---- GS Global: dark-first identity ----
+/* Tailwind color utilities and opacity modifiers share the app's design tokens. */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: 400;
+  font-style: normal;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+@theme {
+  --color-primary: #E9034F;
+  --color-primary-light: #FF6B94;
+  --color-primary-dark: #B8003D;
+  --color-secondary: #FF6B94;
+  --color-accent: #F1C6D2;
+  --color-bg-dark: #09090B;
+  --color-bg-card: #131316;
+  --color-bg-input: #1B1B20;
+  --color-surface: #18181B;
+  --color-surface-light: #27272A;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #D4D4D8;
+  --color-text-muted: #A1A1AA;
+  --color-gold: #E8B04B;
+  --color-success: #22C55E;
+  --color-danger: #FF4D6A;
+  --color-verified: #3FA9F5;
+}
 
-  This app and the Kenya app (V1) were reading as two builds of one product.
-  They differed in colour, but they shared the Outfit typeface and an identical
-  16/24px corner scale, and shape and type are most of what makes two interfaces
-  feel related.
-
-  So this direction is deliberately the opposite of V1's: dark surfaces instead
-  of light, electric teal instead of rose, Space Grotesk instead of Outfit, and
-  a tighter 6/10/14/20 corner scale against V1's 8/12/16/24.
-
-  A dark theme already existed here, but nothing in the app ever set data-theme,
-  so it was unreachable and the interface was permanently light. Dark is now the
-  default and light is the opt-in variant, which is why these values look
-  swapped rather than rewritten.
-
-  Every variable name from the old theme is kept. Six hundred lines of CSS below
-  and every component read these, so renaming them would have been a rewrite
-  with nothing to show for it.
-*/
+/* Genuine Sugarmummies app identity: near-black, white, and the supplied rose. */
 :root {
-  /* Electric teal, far from V1's #C21E56 rose in both hue and temperature. */
-  --color-primary: #14E0C8;
-  --color-primary-light: #7FF3E6;
-  --color-primary-dark: #0B9E8D;
-  --color-secondary: #FF5C7A;
-  --color-accent: #FFB020;
+  --color-primary: #E9034F;
+  --color-primary-light: #FF6B94;
+  --color-primary-dark: #B8003D;
+  --color-secondary: #FF6B94;
+  --color-accent: #F1C6D2;
 
-  /* Cool near-black. The old dark theme was green-black (#071312); this is
-     bluer, so the teal reads as a light source rather than as more background. */
-  --color-bg-dark: #0A0E12;
-  --color-bg-card: #131A21;
-  --color-bg-input: #161F27;
-  --color-surface: #1A232B;
-  --color-surface-light: #24303A;
+  --color-bg-dark: #09090B;
+  --color-bg-card: #131316;
+  --color-bg-input: #1B1B20;
+  --color-surface: #18181B;
+  --color-surface-light: #27272A;
 
-  --color-text-primary: #F2F6F8;
-  --color-text-secondary: #AFC0CC;
-  --color-text-muted: #6F8494;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #D4D4D8;
+  --color-text-muted: #A1A1AA;
 
   --color-gold: #E8B04B;
   --color-success: #22C55E;
   --color-danger: #FF4D6A;
   --color-verified: #3FA9F5;
+  --color-header-bg: color-mix(in srgb, var(--color-bg-card) 92%, transparent);
+  --color-focus-ring: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 13%, transparent);
 
-  /* Tighter than V1 throughout. sm, md and pill are new: the old theme defined
-     only lg and xl, so anything wanting a small corner hard-coded one. */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-pill: 999px;
 
-  /* On a dark ground a soft grey shadow is invisible. Depth comes from a hard
-     black drop plus a faint teal lift, which is what keeps cards above the
-     background instead of dissolving into it. */
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.6), 0 24px 60px rgba(0, 0, 0, 0.55);
-  --shadow-glow: 0 0 0 1px rgba(20, 224, 200, 0.22), 0 8px 32px rgba(20, 224, 200, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(233, 3, 79, 0.28), 0 8px 28px rgba(233, 3, 79, 0.16);
 
-  --gradient-primary: linear-gradient(135deg, #14E0C8 0%, #12B5D8 55%, #6C7BFF 100%);
-  --gradient-secondary: linear-gradient(135deg, #14E0C8 0%, #22C55E 100%);
-  --gradient-accent: linear-gradient(135deg, #FFB020 0%, #FF5C7A 100%);
+  --gradient-primary: linear-gradient(135deg, #D10045 0%, #A8003A 100%);
+  --gradient-secondary: linear-gradient(135deg, #E9034F 0%, #B8003D 100%);
+  --gradient-accent: linear-gradient(135deg, #FFFFFF 0%, #E4E4E7 100%);
   --gradient-gold: linear-gradient(135deg, #F6D174 0%, #E8B04B 60%, #B4801F 100%);
 
-  --app-bg:
-    radial-gradient(circle at 8% -4%, rgba(20, 224, 200, 0.14), transparent 34%),
-    radial-gradient(circle at 96% 4%, rgba(108, 123, 255, 0.12), transparent 30%),
-    linear-gradient(180deg, #0A0E12 0%, #0D141A 55%, #0A0E12 100%);
-  --card-border: 1px solid rgba(127, 243, 230, 0.10);
+  --app-bg: linear-gradient(180deg, #09090B 0%, #101014 100%);
+  --card-border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
-/* The light variant, for anyone who sets data-theme="light". Kept so the
-   dark-first switch does not throw away a working palette, and so a toggle
-   added later has something to toggle to. */
 :root[data-theme="light"] {
-  --color-bg-dark: #F6F9FA;
+  --color-bg-dark: #F7F7F8;
   --color-bg-card: #FFFFFF;
-  --color-bg-input: #EFF5F7;
-  --color-surface: #F1F6F8;
-  --color-surface-light: #E3EEF2;
-  --color-text-primary: #0C1418;
-  --color-text-secondary: #33474F;
-  --color-text-muted: #6C8290;
-  --color-primary: #0B9E8D;
-  --color-primary-light: #14E0C8;
-  --color-primary-dark: #07705F;
-  --shadow-card: 0 8px 28px rgba(12, 20, 24, 0.08);
-  --shadow-lg: 0 18px 48px rgba(12, 20, 24, 0.14);
-  --shadow-glow: 0 0 0 1px rgba(11, 158, 141, 0.18), 0 8px 28px rgba(11, 158, 141, 0.14);
-  --app-bg:
-    radial-gradient(circle at 10% 0%, rgba(11, 158, 141, 0.10), transparent 28%),
-    radial-gradient(circle at 95% 8%, rgba(108, 123, 255, 0.08), transparent 26%),
-    linear-gradient(180deg, #F6F9FA 0%, #FFFFFF 52%, #F6F9FA 100%);
-  --card-border: 1px solid rgba(11, 158, 141, 0.14);
+  --color-bg-input: #F1F1F3;
+  --color-surface: #F1F1F3;
+  --color-surface-light: #E4E4E7;
+  --color-text-primary: #111114;
+  --color-text-secondary: #3F3F46;
+  --color-text-muted: #71717A;
+  --color-primary: #C40042;
+  --color-primary-light: #E9034F;
+  --color-primary-dark: #970034;
+  --color-secondary: #A00035;
+  --color-header-bg: color-mix(in srgb, var(--color-bg-card) 94%, transparent);
+  --color-focus-ring: color-mix(in srgb, var(--color-primary) 38%, transparent);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 9%, transparent);
+  --shadow-card: 0 8px 28px rgba(12, 12, 16, 0.08);
+  --shadow-lg: 0 18px 48px rgba(12, 12, 16, 0.14);
+  --shadow-glow: 0 0 0 1px rgba(196, 0, 66, 0.18), 0 8px 28px rgba(196, 0, 66, 0.12);
+  --app-bg: #F7F7F8;
+  --card-border: 1px solid rgba(24, 24, 27, 0.10);
 }
 
 :root[data-theme="light"] .glass {
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--color-header-bg);
 }
 /* ---- Theme utility classes ---- */
 @layer utilities {
@@ -234,28 +241,28 @@
   }
 
   .glass {
-    background: rgba(255, 255, 255, 0.82);
+    background: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    box-shadow: 0 10px 30px rgba(21, 32, 31, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
   }
 
   .card-glow {
-    box-shadow: 0 0 0 1px rgba(15, 118, 110, 0.06),
-      0 4px 24px rgba(15, 118, 110, 0.08);
+    box-shadow: 0 0 0 1px rgba(233, 3, 79, 0.08),
+      0 4px 24px rgba(0, 0, 0, 0.22);
   }
 
   /* New: card with shine border */
   .card-shine {
     background: var(--color-bg-card);
     border: var(--card-border);
-    box-shadow: 0 10px 28px rgba(21, 32, 31, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    box-shadow: var(--shadow-card),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .card-shadow {
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12),
-      0 2px 8px rgba(15, 118, 110, 0.08);
+      0 2px 8px rgba(0, 0, 0, 0.18);
   }
 }
 
@@ -318,7 +325,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid rgba(14, 143, 131, 0.22);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -414,11 +421,11 @@ select:focus-visible {
 
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.3);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 30%, transparent);
   }
 
   50% {
-    box-shadow: 0 0 0 8px rgba(124, 58, 237, 0);
+    box-shadow: 0 0 0 8px transparent;
   }
 }
 
@@ -683,6 +690,45 @@ select:focus-visible {
   padding-bottom: env(safe-area-inset-bottom, 8px);
 }
 
+.desktop-nav {
+  display: none;
+}
+
+.app-header-inner {
+  width: min(calc(100% - 32px), 1180px);
+  margin-inline: auto;
+}
+
+.brand-logo-light,
+.brand-logo-dark {
+  display: block;
+  width: auto;
+  max-width: 82vw;
+  object-fit: contain;
+}
+
+.brand-logo-dark {
+  display: none;
+}
+
+:root[data-theme="light"] .brand-logo-light {
+  display: none;
+}
+
+:root[data-theme="light"] .brand-logo-dark {
+  display: block;
+}
+
+@media (min-width: 900px) {
+  .desktop-nav {
+    display: flex;
+  }
+
+  .mobile-bottom-nav {
+    display: none;
+  }
+}
+
 /* ---- Image aspect ratio containers ---- */
 .aspect-profile {
   aspect-ratio: 3 / 4;
@@ -703,7 +749,7 @@ select:focus-visible {
 
 /* ---- Selection color ---- */
 ::selection {
-  background: rgba(15, 118, 110, 0.2);
+  background: var(--color-primary-soft);
   color: var(--color-text-primary);
 }
 

@@ -10,8 +10,8 @@ REST API plugin for the **GenuineSugarMummies.com** Next.js mobile app.
 ## Endpoints
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/wp-json/gs-app/v1/profiles` | Paginated profile list with images |
-| GET | `/wp-json/gs-app/v1/profiles/{id}` | Single profile with full content |
+| GET | `/wp-json/gs-app/v1/profiles` | Paginated profiles from the `sugarmummies` and `sugar-daddies` categories |
+| GET | `/wp-json/gs-app/v1/profiles/{id}` | Single eligible profile with full content; other posts return 404 |
 | GET | `/wp-json/gs-app/v1/comments/{post_id}` | Comments with author avatars |
 | POST | `/wp-json/gs-app/v1/comment` | Submit comment (held for moderation) |
 | POST | `/wp-json/gs-app/v1/subscribe` | Email subscription |
@@ -21,4 +21,4 @@ REST API plugin for the **GenuineSugarMummies.com** Next.js mobile app.
 - All app comments are held for moderation automatically
 
 ## Version
-2.0.0 — Full profiles, comments with avatars, image fallbacks, and email subscriptions.
+2.1.0 — Listing-category-only profile feed, lighter list responses, and single-profile eligibility checks.

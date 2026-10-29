@@ -48,7 +48,7 @@ export default function CommunityPage() {
                 <Link href="/messages" className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center" aria-label="Back"><ArrowLeft size={18} /></Link>
                 <div>
                     <p className="text-xs font-black uppercase text-primary">Official channel</p>
-                    <h1 className="text-xl font-black text-text-primary">GS App Community</h1>
+                    <h1 className="text-xl font-black text-text-primary">Genuine Sugarmummies Community</h1>
                     <p className="text-xs text-text-muted">Updates, instructions, and safety notices for active members.</p>
                 </div>
             </header>

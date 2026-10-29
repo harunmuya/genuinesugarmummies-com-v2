@@ -54,15 +54,16 @@ export default function ProfileDetailPage({ params }) {
     const { id } = use(params);
     const router = useRouter();
     const {
-        user, guest, addLike, addMatch, likes, saveProfile, unsaveProfile,
+        user, guest, addLike, likes, saveProfile, unsaveProfile,
         isProfileSaved, logProfileView, requestConnection,
-        computeMatchScore, shouldMatchProfile, settings,
     } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showCommentForm, setShowCommentForm] = useState(false);
     const [comments, setComments] = useState([]);
     const [liked, setLiked] = useState(false);
+    const [likePending, setLikePending] = useState(false);
+    const [likeNotice, setLikeNotice] = useState('');
 
     useEffect(() => {
         async function loadProfile() {
@@ -99,16 +100,19 @@ export default function ProfileDetailPage({ params }) {
         if (profile && likes.some(l => l.wpId === profile.wpId)) setLiked(true);
     }, [profile, likes]);
 
-    const handleLike = () => {
-        if (!profile || liked) return;
+    const handleLike = async () => {
+        if (!profile || liked || likePending) return;
         if (guest || !user) { router.push('/auth/login'); return; }
-        setLiked(true);
-        addLike(profile);
-
-        if (shouldMatchProfile(profile, user, settings)) {
-            const score = computeMatchScore(profile, user, settings);
-            addMatch(profile, score);
+        setLikePending(true);
+        setLikeNotice('');
+        const result = await addLike(profile);
+        setLikePending(false);
+        if (!result?.ok) {
+            setLikeNotice(result?.error || 'Your interest could not be saved. Please try again.');
+            return;
         }
+        setLiked(true);
+        setLikeNotice('Interest saved to your account. This published listing does not receive in-app likes; use Request Connection to contact the desk.');
     };
 
     const handleSave = () => {
@@ -142,7 +146,7 @@ export default function ProfileDetailPage({ params }) {
         if (guest || !user) { router.push('/auth/login'); return; }
         requestConnection(profile.name, profile.wpId);
         const msg = encodeURIComponent(`Hi, need a match connection with ${profile.name}`);
-        window.open(`https://t.me/GSADMINMARYGAGENCY?text=${msg}`, '_blank');
+        window.open(`https://t.me/GSADMINMARYGAGENCY?text=${msg}`, '_blank', 'noopener,noreferrer');
     };
 
     if (loading) {
@@ -193,7 +197,7 @@ export default function ProfileDetailPage({ params }) {
                     </button>
                     <button onClick={handleSave}
                         className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
-                        style={{ background: saved ? 'rgba(124,58,237,0.8)' : 'rgba(0,0,0,0.6)' }}
+                        style={{ background: saved ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)' }}
                     >
                         {saved ? <BookmarkCheck size={20} className="text-white" /> : <Bookmark size={20} className="text-white" />}
                     </button>
@@ -221,16 +225,16 @@ export default function ProfileDetailPage({ params }) {
                 <div className="flex items-center justify-center gap-3 py-3">
                     <button
                         onClick={handleLike}
-                        disabled={liked}
+                        disabled={liked || likePending}
                         className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-white transition-all active:scale-95 ${liked ? 'opacity-70' : 'shadow-lg'}`}
                         style={{
-                            background: liked ? '#F472B6' : 'var(--gradient-primary)',
+                            background: liked ? 'var(--color-primary-light)' : 'var(--gradient-primary)',
                             backgroundImage: liked ? 'none' : 'var(--gradient-primary)',
-                            boxShadow: liked ? 'none' : '0 4px 20px rgba(124,58,237,0.3)',
+                            boxShadow: liked ? 'none' : 'var(--shadow-glow)',
                         }}
                     >
                         <Heart size={20} fill={liked ? 'white' : 'none'} />
-                        {liked ? 'Liked!' : 'Like'}
+                        {likePending ? 'Saving…' : liked ? 'Interest saved' : 'Save interest'}
                     </button>
 
                     <button
@@ -245,6 +249,7 @@ export default function ProfileDetailPage({ params }) {
                         Comment
                     </button>
                 </div>
+                {likeNotice && <p role="status" className="mx-auto max-w-md text-center text-xs text-text-secondary">{likeNotice}</p>}
 
                 {/* Profile Stats */}
                 <div className="grid grid-cols-3 gap-2">
@@ -260,8 +265,8 @@ export default function ProfileDetailPage({ params }) {
                     </div>
                     <div className="rounded-xl p-3 text-center" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                         <Heart size={16} className="mx-auto text-pink-500 mb-1" />
-                        <p className="text-[11px] text-text-muted">Likes</p>
-                        <p className="text-xs font-bold text-text-primary">{liked ? 1 : 0}</p>
+                        <p className="text-[11px] text-text-muted">Your interest</p>
+                        <p className="text-xs font-bold text-text-primary">{liked ? 'Saved' : 'Not sent'}</p>
                     </div>
                 </div>
                 {/* About */}
@@ -281,7 +286,7 @@ export default function ProfileDetailPage({ params }) {
                 <button
                     onClick={handleRequestConnection}
                     className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white gradient-primary shadow-lg transition-all active:scale-[0.98]"
-                    style={{ boxShadow: '0 4px 20px rgba(124,58,237,0.3)' }}
+                    style={{ boxShadow: 'var(--shadow-glow)' }}
                 >
                     <ExternalLink size={20} />
                     Request Connection on Telegram
@@ -346,7 +351,7 @@ export default function ProfileDetailPage({ params }) {
                 {profile.link && (
                     <a href={profile.link} target="_blank" rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium text-primary transition-all hover:bg-primary/5"
-                        style={{ border: '1px solid rgba(124,58,237,0.15)' }}
+                        style={{ border: 'var(--card-border)' }}
                     >
                         <ExternalLink size={16} /> View on Website
                     </a>

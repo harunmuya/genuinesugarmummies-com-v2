@@ -61,9 +61,9 @@ function lookingTone(member) {
     const text = `${member.lookingFor || ''} ${member.profileLabel || ''}`.toLowerCase();
     if (text.includes('sugar mummy')) return 'from-rose-500 to-pink-500';
     if (text.includes('sugar daddy')) return 'from-sky-500 to-indigo-500';
-    if (text.includes('mistress')) return 'from-teal-500 to-emerald-500';
+    if (text.includes('mistress')) return 'from-rose-700 to-rose-500';
     if (text.includes('toyboy') || text.includes('sugar guy')) return 'from-amber-500 to-orange-500';
-    return 'from-primary to-secondary';
+    return 'from-rose-700 to-pink-500';
 }
 
 function lookingLabel(member) {
@@ -89,11 +89,11 @@ function fallbackAvatarSrc(name = 'Member') {
     const initials = String(name || 'Member').trim().split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase() || 'GS';
     const svg = [
         '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="520" viewBox="0 0 400 520">',
-        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#f97316"/><stop offset="1" stop-color="#14b8a6"/></linearGradient></defs>',
+        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#E9034F"/><stop offset="1" stop-color="#57001D"/></linearGradient></defs>',
         '<rect width="400" height="520" fill="url(#g)"/>',
         '<circle cx="200" cy="190" r="86" fill="rgba(255,255,255,.28)"/>',
         '<text x="200" y="210" text-anchor="middle" font-family="Arial,sans-serif" font-size="78" font-weight="900" fill="white">' + initials + '</text>',
-        '<text x="200" y="330" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="rgba(255,255,255,.86)">Genuine profile</text>',
+        '<text x="200" y="330" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="rgba(255,255,255,.86)">Profile photo unavailable</text>',
         '</svg>',
     ].join('');
     return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
@@ -284,7 +284,7 @@ export default function MembersPage() {
                                         <p className="text-[11px] opacity-85 truncate">{member.age ? `${member.age} - ` : ''}{member.lookingFor || labelText(member.profileLabel)}</p>
                                     </div>
                                     <span className="absolute top-2 left-2 px-2 py-1 rounded-full text-[11px] font-bold text-white bg-black/55 backdrop-blur-sm">{labelText(member.profileLabel)}</span>
-                                    {member.isBoosted && <span className="absolute left-2 top-9 rounded-full bg-secondary px-2 py-1 text-[11px] font-black text-white shadow-sm">BOOSTED</span>}
+                                    {member.isBoosted && <span className="absolute left-2 top-9 rounded-full bg-primary px-2 py-1 text-[11px] font-black text-white shadow-sm">BOOSTED</span>}
                                     <span className={`absolute top-2 right-2 w-3.5 h-3.5 rounded-full ring-4 ring-white/80 ${presenceTone(member)}`} title={timeSince(member.lastSeenAt) || 'offline'} aria-label={timeSince(member.lastSeenAt) || 'offline'} />
                                 </div>
                             </button>

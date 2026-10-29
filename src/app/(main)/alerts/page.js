@@ -172,7 +172,7 @@ export default function AlertsPage() {
                         {visible.map((item, index) => {
                             const Icon = ICONS[item.type] || ICONS.default;
                             return (
-                                <motion.button key={item.id || `${item.type}-${index}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }} onClick={() => openItem(item)} className="w-full text-left rounded-2xl p-3 flex items-start gap-3 active:scale-[0.99]" style={{ background: item.read ? 'var(--color-bg-card)' : 'rgba(15,118,110,0.07)', border: 'var(--card-border)' }}>
+                                <motion.button key={item.id || `${item.type}-${index}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }} onClick={() => openItem(item)} className="w-full text-left rounded-2xl p-3 flex items-start gap-3 active:scale-[0.99]" style={{ background: item.read ? 'var(--color-bg-card)' : 'var(--color-primary-soft)', border: 'var(--card-border)' }}>
                                     <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 overflow-hidden">
                                         {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> : <Icon size={19} />}
                                     </div>

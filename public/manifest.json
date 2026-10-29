@@ -1,11 +1,11 @@
 {
-    "name": "GS Global - Verified Sugar Mummy Dating",
-    "short_name": "GS Global",
-    "description": "Meet verified sugar mummies and sugar daddies. Real profiles, checked by hand.",
+    "name": "Genuine Sugarmummies",
+    "short_name": "Sugarmummies",
+    "description": "Adult profiles and introductions through Genuine Sugarmummies.",
     "start_url": "/discover",
     "display": "standalone",
-    "background_color": "#0A0E12",
-    "theme_color": "#0A0E12",
+    "background_color": "#09090B",
+    "theme_color": "#09090B",
     "orientation": "portrait",
     "scope": "/",
     "icons": [

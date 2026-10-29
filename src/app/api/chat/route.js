@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabaseAdmin';
 import { canUseFeature, dailyLimitForFeature, getUserPackageAccess } from '@/lib/packageAccess';
+import { getMemberSessionUserId } from '@/lib/memberSession';
+import { emailHtml, sendAndLogEmail } from '@/lib/email';
 
 const LIMIT_NOTICE = 'Your daily quota has been exhausted. Pay for a package to unlock unlimited access.';
 
@@ -105,10 +107,16 @@ async function conversationRows(supabase, userId) {
         .limit(100);
     if (error) return { error };
     const peers = [...new Set((data || []).map((row) => row.user_one_id === userId ? row.user_two_id : row.user_one_id).filter(Boolean))];
-    const { data: users } = peers.length
-        ? await supabase.from('users').select('id, display_name, avatar_url, photos, verified, last_seen_at').in('id', peers)
-        : { data: [] };
+    const [{ data: users }, { data: privacyRows }] = await Promise.all([
+        peers.length
+            ? supabase.from('users').select('id, display_name, avatar_url, photos, verified, last_seen_at').in('id', peers)
+            : Promise.resolve({ data: [] }),
+        peers.length
+            ? supabase.from('user_settings').select('user_id, show_online').in('user_id', peers)
+            : Promise.resolve({ data: [] }),
+    ]);
     const usersById = new Map((users || []).map((user) => [user.id, user]));
+    const privacyById = new Map((privacyRows || []).map((row) => [row.user_id, row]));
     const conversationIds = (data || []).map((row) => row.id);
     const { data: messages } = conversationIds.length
         ? await supabase.from('messages').select('id, conversation_id, sender_id, body, message_type, status, read_at, created_at').in('conversation_id', conversationIds).order('created_at', { ascending: false }).limit(200)
@@ -122,7 +130,10 @@ async function conversationRows(supabase, userId) {
     return {
         data: (data || []).map((row) => {
             const peerId = row.user_one_id === userId ? row.user_two_id : row.user_one_id;
-            const peer = usersById.get(peerId) || {};
+            const storedPeer = usersById.get(peerId) || {};
+            const peer = privacyById.get(peerId)?.show_online === false
+                ? { ...storedPeer, last_seen_at: null }
+                : storedPeer;
             return {
                 ...row,
                 peer,
@@ -135,12 +146,12 @@ async function conversationRows(supabase, userId) {
 }
 
 export async function GET(request) {
+    const userId = getMemberSessionUserId(request);
+    if (!userId) return jsonError('Sign in to open conversations.', 401);
     const supabase = createServerSupabaseClient({ admin: true });
     if (!supabase) return jsonError('Supabase admin env missing.', 503);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     const peerId = searchParams.get('peerId');
-    if (!userId) return jsonError('Signed-in user id is required.', 400);
 
     if (!peerId) {
         const result = await conversationRows(supabase, userId);
@@ -148,8 +159,13 @@ export async function GET(request) {
         return NextResponse.json({ ok: true, conversations: result.data || [] });
     }
 
-    const [user, peer] = await Promise.all([getUser(supabase, userId), getUser(supabase, peerId)]);
+    const [user, peer, privacyResult] = await Promise.all([
+        getUser(supabase, userId),
+        getUser(supabase, peerId),
+        supabase.from('user_settings').select('show_online').eq('user_id', peerId).maybeSingle(),
+    ]);
     if (!user?.id || !peer?.id) return jsonError('User or member was not found.', 404);
+    if (privacyResult.data?.show_online === false) peer.last_seen_at = null;
     const conversation = await ensureConversation(supabase, userId, peerId);
     if (conversation.error) return jsonError(conversation.error.message);
     const { data: messages, error } = await supabase
@@ -173,13 +189,15 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+    const userId = getMemberSessionUserId(request);
+    if (!userId) return jsonError('Sign in to send messages.', 401);
     const supabase = createServerSupabaseClient({ admin: true });
     if (!supabase) return jsonError('Supabase admin env missing.', 503);
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'send';
-    const userId = body.userId;
     const peerId = body.peerId;
-    if (!userId || !peerId) return jsonError('User and peer are required.', 400);
+    if (!peerId) return jsonError('Choose a member to message.', 400);
+    if (String(peerId) === String(userId)) return jsonError('You cannot start a conversation with your own account.', 400);
     const [user, peer] = await Promise.all([getUser(supabase, userId), getUser(supabase, peerId)]);
     if (!user?.id || !peer?.id) return jsonError('User or member was not found.', 404);
     if (user.is_banned || user.is_suspended) return jsonError('Your account cannot send messages.', 403);
@@ -301,8 +319,37 @@ export async function POST(request) {
         });
     } catch {}
     try {
+        const [{ data: recipient }, { data: settings }] = await Promise.all([
+            supabase.from('users').select('email, display_name').eq('id', peerId).maybeSingle(),
+            supabase.from('user_settings').select('email_notifications').eq('user_id', peerId).maybeSingle(),
+        ]);
+        if (settings?.email_notifications && recipient?.email) {
+            const title = `New message from ${user.display_name || 'a member'}`;
+            const result = await sendAndLogEmail(supabase, {
+                to: recipient.email,
+                subject: title,
+                text: 'You have a new message in your GS inbox. Sign in to read and reply.',
+                html: emailHtml(title, '<p>You have a new message in your GS inbox. Sign in to read and reply.</p>', {
+                    accountName: recipient.display_name || 'GS Member',
+                    actionUrl: `/messages/${userId}`,
+                    actionLabel: 'Open messages',
+                }),
+            });
+            if (!result.ok) await writeEmailFailure(supabase, recipient.email, result.error || 'Activity email could not be sent.');
+        }
+    } catch {}
+    try {
         await supabase.from('admin_logs').insert({ action: 'chat_message_sent', details: { conversationId: conversation.data.id, senderId: userId, receiverId: peerId, messageType } });
     } catch {}
 
     return NextResponse.json({ ok: true, conversation: conversation.data, message: inserted.data });
+}
+
+async function writeEmailFailure(supabase, email, error) {
+    try {
+        await supabase.from('admin_logs').insert({
+            action: 'chat_activity_email_failed',
+            details: { recipient: email, error: String(error).slice(0, 300) },
+        });
+    } catch {}
 }

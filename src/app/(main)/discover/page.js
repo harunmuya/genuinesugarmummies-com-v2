@@ -11,10 +11,13 @@ import BoostedMembersStrip from '@/components/BoostedMembersStrip';
 import StoriesStrip from '@/components/StoriesStrip';
 import { useAuth } from '@/contexts/AuthContext';
 import { startPolling, POLL } from '@/lib/poll';
+import { distanceKm } from '@/lib/geo.mjs';
+import { profileFitsUser } from '@/lib/matching.mjs';
 import MatchCelebration from '@/components/MatchCelebration';
 
-const CACHE_KEY = 'gscom_discover_deck_v3';
+const CACHE_KEY = 'gscom_discover_deck_v4';
 const CACHE_LIMIT = 80;
+const FEED_PAGE_SIZE = 24;
 
 function tier(user) {
     return String(user?.subscription_tier || user?.subscriptionTier || 'free').toLowerCase();
@@ -49,22 +52,6 @@ function presenceTone(member) {
     return 'bg-gray-300';
 }
 
-function distanceKm(a, b) {
-    if (!a || !b) return null;
-    const lat1 = Number(a.latitude);
-    const lon1 = Number(a.longitude);
-    const lat2 = Number(b.latitude);
-    const lon2 = Number(b.longitude);
-    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
-    const toRad = (value) => value * Math.PI / 180;
-    const radius = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const s1 = Math.sin(dLat / 2) ** 2;
-    const s2 = Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-    return Math.round(radius * 2 * Math.atan2(Math.sqrt(s1 + s2), Math.sqrt(1 - s1 - s2)));
-}
-
 function locationLabelFromCoords(latitude, longitude) {
     const places = [
         { name: 'Nairobi', lat: -1.2921, lng: 36.8219, r: 0.3 },
@@ -88,25 +75,6 @@ function liveDuration(startedAt) {
     return `${mins}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function userProfileLabel(user) {
-    const label = String(user?.profile_label || user?.member_category || '').toLowerCase();
-    if (['sugar_mummy', 'sugar_daddy', 'mistress', 'toyboy'].includes(label)) return label;
-    const pref = String(user?.preference || '').toLowerCase();
-    if (pref.includes('toyboy')) return 'toyboy';
-    if (pref.includes('sugar_daddy')) return 'sugar_daddy';
-    if (pref.includes('mistress')) return 'mistress';
-    if (pref.includes('sugar_mummy')) return 'sugar_mummy';
-    return 'sugar_mummy';
-}
-
-function targetLabelsForUser(user) {
-    const label = userProfileLabel(user);
-    if (label === 'toyboy') return new Set(['sugar_mummy']);
-    if (label === 'mistress') return new Set(['sugar_daddy']);
-    if (label === 'sugar_daddy') return new Set(['mistress']);
-    return null;
-}
-
 function memberPath(member) {
     return member?.id ? '/members/' + member.id : '/members';
 }
@@ -122,8 +90,8 @@ function normalizeMember(member) {
         avatarUrl: member.avatarUrl || member.photos?.[0] || '',
         profileLabel: label,
         sortDate: member.createdAt || member.lastSeenAt || '',
-        latitude: member.latitude || member.lat || null,
-        longitude: member.longitude || member.lng || null,
+        latitude: member.latitude ?? member.lat ?? null,
+        longitude: member.longitude ?? member.lng ?? null,
     };
 }
 
@@ -132,6 +100,7 @@ function normalizeWpProfile(profile) {
         id: null,
         source: 'wp',
         wpId: profile.wpId,
+        profileType: profile.profileType,
         swipeKey: `wp:${profile.wpId}`,
         detailPath: `/discover/${profile.wpId}`,
         name: profile.name || 'Sugar Mummy',
@@ -143,10 +112,10 @@ function normalizeWpProfile(profile) {
         location: profile.location || '',
         country: '',
         city: '',
-        profileLabel: 'sugar_mummy',
-        memberCategory: 'sugar_mummy',
-        lookingFor: 'Sugar Guy / Toyboy',
-        intentSummary: profile.excerpt || 'Sugar mummy profile from featured posts.',
+        profileLabel: profile.profileType,
+        memberCategory: profile.profileType,
+        lookingFor: profile.profileType === 'sugar_daddy' ? 'Mistress' : 'Sugar Guy / Toyboy',
+        intentSummary: profile.excerpt || 'Published profile from the website.',
         wants: '',
         neededQualities: '',
         ageRangePreference: '',
@@ -158,8 +127,8 @@ function normalizeWpProfile(profile) {
         createdAt: profile.date || null,
         sortDate: profile.date || '',
         lastSeenAt: profile.date || '',
-        latitude: profile.coords?.latitude || null,
-        longitude: profile.coords?.longitude || null,
+        latitude: profile.coords?.latitude ?? null,
+        longitude: profile.coords?.longitude ?? null,
     };
 }
 
@@ -203,48 +172,25 @@ function compactCachedMember(member) {
     };
 }
 
-function writeDeckCache(members) {
+function writeDeckCache(key, members, pageState) {
     if (typeof sessionStorage === 'undefined' || !members.length) return;
     try {
         const compactMembers = members.slice(0, CACHE_LIMIT).map(compactCachedMember);
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ members: compactMembers }));
+        sessionStorage.setItem(key, JSON.stringify({ members: compactMembers, pageState }));
     } catch {
-        try { sessionStorage.removeItem(CACHE_KEY); } catch {}
+        try { sessionStorage.removeItem(key); } catch {}
     }
-}
-
-function profileFitsUser(member, user) {
-    const targets = targetLabelsForUser(user);
-    if (!targets) return true;
-    return targets.has(String(member.profileLabel || member.memberCategory || '').toLowerCase());
-}
-
-function matchScore(member, user) {
-    let score = 54;
-    const userLocation = String(user?.location || '').toLowerCase();
-    const memberLocation = String(member.location || member.country || '').toLowerCase();
-    if (userLocation && memberLocation && (memberLocation.includes(userLocation) || userLocation.includes(memberLocation))) score += 18;
-    if (member.verified) score += 8;
-    if (member.isBoosted) score += 22;
-    if (member.intentSummary || member.wants || member.excerpt) score += 6;
-    if (profileFitsUser(member, user)) score += 14;
-    if (member.source === 'wp') score += 3;
-    const seed = `${member.swipeKey}-${user?.email || ''}`;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-    score += Math.abs(hash) % 9;
-    return Math.max(50, Math.min(98, score));
 }
 
 function fallbackAvatarSrc(name = 'Member') {
     const initials = String(name || 'Member').trim().split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase() || 'GS';
     const svg = [
         '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="520" viewBox="0 0 400 520">',
-        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#f97316"/><stop offset="1" stop-color="#14b8a6"/></linearGradient></defs>',
+        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#E9034F"/><stop offset="1" stop-color="#57001D"/></linearGradient></defs>',
         '<rect width="400" height="520" fill="url(#g)"/>',
         '<circle cx="200" cy="190" r="86" fill="rgba(255,255,255,.28)"/>',
         '<text x="200" y="210" text-anchor="middle" font-family="Arial,sans-serif" font-size="78" font-weight="900" fill="white">' + initials + '</text>',
-        '<text x="200" y="330" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="rgba(255,255,255,.86)">Genuine profile</text>',
+        '<text x="200" y="330" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="rgba(255,255,255,.86)">Profile photo unavailable</text>',
         '</svg>',
     ].join('');
     return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
@@ -267,8 +213,14 @@ export default function DiscoverPage() {
     const [liveStreams, setLiveStreams] = useState([]);
     const [geo, setGeo] = useState(null);
     const [filter, setFilter] = useState('all');
+    const [feedHasMore, setFeedHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [cacheReadyKey, setCacheReadyKey] = useState('');
+    const deckCacheKey = `${CACHE_KEY}:${user?.id || 'guest'}`;
+    const pageState = useRef({ memberPage: 1, wpPage: 1, memberHasMore: true, wpHasMore: true });
     const fetched = useRef(false);
     const swiping = useRef(false);
+    const loadingMoreRef = useRef(false);
     const access = packageAccess(user);
 
     const x = useMotionValue(0);
@@ -276,54 +228,95 @@ export default function DiscoverPage() {
     const likeOpacity = useTransform(x, [0, 100], [0, 1]);
     const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
 
-    useEffect(() => {
+    async function loadDeckPage(initial = false) {
+        if (loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+        if (!initial) setLoadingMore(true);
+        const cursor = pageState.current;
+        const memberPage = initial ? 1 : cursor.memberHasMore ? cursor.memberPage + 1 : cursor.memberPage;
+        const wpPage = initial ? 1 : cursor.wpHasMore ? cursor.wpPage + 1 : cursor.wpPage;
+        const memberRequest = initial || cursor.memberHasMore
+            ? fetch(`/api/members?page=${memberPage}&per_page=${FEED_PAGE_SIZE}`)
+            : Promise.resolve(null);
+        const wpRequest = initial || cursor.wpHasMore
+            ? fetch(`/api/profiles?page=${wpPage}&per_page=${FEED_PAGE_SIZE}`)
+            : Promise.resolve(null);
         try {
-            const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
-            if (cached?.members?.length) {
-                fetched.current = true;
-                setMembers(cached.members);
-                setLoading(false);
-            }
-        } catch {}
-    }, []);
+            const [memberRes, wpRes] = await Promise.allSettled([memberRequest, wpRequest]);
+            const memberResponse = memberRes.status === 'fulfilled' ? memberRes.value : null;
+            const wpResponse = wpRes.status === 'fulfilled' ? wpRes.value : null;
+            const [memberData, wpData] = await Promise.all([
+                memberResponse?.json().catch(() => ({})) || {},
+                wpResponse?.json().catch(() => ({})) || {},
+            ]);
+            const memberRows = memberResponse?.ok ? (memberData.members || []) : [];
+            const wpRows = wpResponse?.ok ? (wpData.profiles || []) : [];
+            const nextPageState = {
+                memberPage,
+                wpPage,
+                memberHasMore: Boolean(memberResponse?.ok && (memberData.hasMore ?? memberRows.length >= FEED_PAGE_SIZE)),
+                wpHasMore: Boolean(wpResponse?.ok && wpPage < Number(wpData.totalPages || 0)),
+            };
+            pageState.current = nextPageState;
+            setFeedHasMore(nextPageState.memberHasMore || nextPageState.wpHasMore);
+            const batch = [
+                ...memberRows.map(normalizeMember),
+                ...wpRows.filter((profile) => profile.imageUrl).map(normalizeWpProfile),
+            ];
+            const ranked = batch.map((item) => {
+                let hash = 0;
+                const seed = `${item.swipeKey}-${user?.id || user?.email || 'guest'}`;
+                for (let index = 0; index < seed.length; index++) hash = ((hash << 5) - hash + seed.charCodeAt(index)) | 0;
+                return { ...item, randomRank: Math.abs(hash % 10000) / 10000 };
+            });
+            setMembers((current) => {
+                const byKey = new Map(initial ? [] : current.map((item) => [item.swipeKey, item]));
+                ranked.forEach((item) => { if (item.swipeKey && !byKey.has(item.swipeKey)) byKey.set(item.swipeKey, item); });
+                return Array.from(byKey.values()).sort((a, b) => a.randomRank - b.randomRank);
+            });
+            if (!memberResponse?.ok && !wpResponse?.ok) setNotice('Profiles are temporarily unavailable. Please try again shortly.');
+        } catch {
+            if (initial) setNotice('Profiles are temporarily unavailable. Please try again shortly.');
+            pageState.current = { ...pageState.current, memberHasMore: false, wpHasMore: false };
+            setFeedHasMore(false);
+        } finally {
+            loadingMoreRef.current = false;
+            if (!initial) setLoadingMore(false);
+            if (initial) setLoading(false);
+        }
+    }
 
     useEffect(() => {
-        writeDeckCache(members);
-    }, [members]);
+        fetched.current = false;
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(deckCacheKey) || 'null');
+            if (cached?.members?.length) {
+                fetched.current = true;
+                pageState.current = cached.pageState || { memberPage: 1, wpPage: 1, memberHasMore: false, wpHasMore: false };
+                setFeedHasMore(Boolean(pageState.current.memberHasMore || pageState.current.wpHasMore));
+                setMembers(cached.members);
+                setLoading(false);
+                setCacheReadyKey(deckCacheKey);
+                return;
+            }
+        } catch { /* discard a damaged per-session feed cache */ }
+        pageState.current = { memberPage: 1, wpPage: 1, memberHasMore: true, wpHasMore: true };
+        setMembers([]);
+        setLoading(true);
+        setFeedHasMore(true);
+        setCacheReadyKey(deckCacheKey);
+    }, [deckCacheKey]);
+
+    useEffect(() => {
+        if (cacheReadyKey !== deckCacheKey) return;
+        writeDeckCache(deckCacheKey, members, pageState.current);
+    }, [cacheReadyKey, deckCacheKey, members]);
 
     useEffect(() => {
         if (fetched.current) return;
         fetched.current = true;
-        async function loadDeck() {
-            try {
-                const memberParams = new URLSearchParams({ per_page: '240' });
-                if (access.canRevealPhone && user?.id) memberParams.set('viewer_id', user.id);
-                const [membersRes, wpRes] = await Promise.allSettled([
-                    fetch(`/api/members?${memberParams.toString()}`),
-                    fetch('/api/profiles?random=1&per_page=100'),
-                ]);
-                const memberData = membersRes.status === 'fulfilled' ? await membersRes.value.json().catch(() => ({})) : {};
-                const wpData = wpRes.status === 'fulfilled' ? await wpRes.value.json().catch(() => ({})) : {};
-                const memberDeck = (memberData.members || []).map(normalizeMember);
-                const wpDeck = (wpData.profiles || []).filter((profile) => profile.imageUrl).map(normalizeWpProfile);
-                const byKey = new Map();
-                [...memberDeck, ...wpDeck].forEach((item) => {
-                    if (item.swipeKey && !byKey.has(item.swipeKey)) {
-                        let hash = 0;
-                        const seed = `${item.swipeKey}-${user?.id || user?.email || 'guest'}`;
-                        for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-                        byKey.set(item.swipeKey, { ...item, randomRank: Math.abs(hash % 10000) / 10000 });
-                    }
-                });
-                setMembers(Array.from(byKey.values()).sort((a, b) => a.randomRank - b.randomRank));
-            } catch {
-                setNotice('Profiles are temporarily unavailable.');
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadDeck();
-    }, [access.canRevealPhone, user?.id]);
+        loadDeckPage(true);
+    }, [deckCacheKey, access.canRevealPhone]);
 
     useEffect(() => {
         async function loadLiveStreams() {
@@ -406,15 +399,21 @@ export default function DiscoverPage() {
                 if (filter === 'nearby') {
                     const aDistance = distanceKm(geo || user, a);
                     const bDistance = distanceKm(geo || user, b);
-                    if (aDistance !== null && bDistance !== null && aDistance !== bDistance) return aDistance - bDistance;
+                    if (aDistance !== bDistance) {
+                        if (aDistance === null) return 1;
+                        if (bDistance === null) return -1;
+                        return aDistance - bDistance;
+                    }
                 }
-                const scoreGap = matchScore(b, user) - matchScore(a, user);
-                if (Math.abs(scoreGap) > 18) return scoreGap;
                 return (a.randomRank || 0) - (b.randomRank || 0);
             });
     }, [members, user, isProfileSwiped, filter, geo]);
 
     const current = available[0];
+
+    useEffect(() => {
+        if (!loading && !loadingMore && feedHasMore && available.length <= 4) loadDeckPage(false);
+    }, [available.length, feedHasMore, loading, loadingMore]);
 
     function normalizedForAuth(member) {
         return {
@@ -427,7 +426,6 @@ export default function DiscoverPage() {
             excerpt: compactText(member),
             verified: member.verified,
             date: member.createdAt,
-            score: matchScore(member, user),
             source: member.source,
         };
     }
@@ -472,7 +470,7 @@ export default function DiscoverPage() {
           reciprocal row.
         */
         if (result?.matched && result.match) {
-            addMatch(profile, matchScore(current, user));
+            addMatch(profile);
             setCelebration(result.match);
         }
         addMessage?.({ type: 'like', sender: 'You', title: `You liked ${current.name}`, body: result?.matched ? 'You liked each other.' : 'They will see your like.', memberId: current.id, senderImage: current.avatarUrl });
@@ -491,7 +489,7 @@ export default function DiscoverPage() {
             return;
         }
         if (result?.matched && result.match) {
-            addMatch(profile, Math.min(99, matchScore(current, user) + 5));
+            addMatch(profile);
             setCelebration(result.match);
         }
         addMessage?.({ type: 'superlike', sender: 'You', title: `You super liked ${current.name}`, body: result?.matched ? 'You liked each other.' : 'They will see your super like first.', memberId: current.id, senderImage: current.avatarUrl });
@@ -540,17 +538,16 @@ export default function DiscoverPage() {
 
     function handleRefresh() {
         clearSwipeHistory();
-        sessionStorage.removeItem(CACHE_KEY);
+        sessionStorage.removeItem(deckCacheKey);
         setNotice('Swipe history cleared.');
     }
 
     if (loading) return <div className="px-4 py-14 text-center text-primary font-black">Loading members...</div>;
 
     if (!current) {
+        if (loadingMore || feedHasMore) return <div className="px-4 py-12 text-center text-sm font-bold text-text-muted">{loadingMore ? 'Loading more profiles…' : 'Checking the next page…'}</div>;
         return <div className="px-4 py-12 text-center space-y-4"><div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center"><Sparkles size={30} className="text-primary" /></div><h2 className="text-xl font-black text-text-primary">No More Profiles</h2><p className="text-sm text-text-muted">Refresh to review profiles again.</p><button onClick={handleRefresh} className="mx-auto px-5 py-3 rounded-2xl font-black text-white gradient-primary flex items-center gap-2"><RefreshCw size={17} /> Refresh</button></div>;
     }
-
-    const score = matchScore(current, user);
 
     return (
         <div className="px-4 py-4 pb-28 space-y-4">
@@ -598,7 +595,7 @@ export default function DiscoverPage() {
                         <motion.div className="absolute top-7 right-5 px-4 py-2 rounded-xl border-4 border-danger text-danger font-black text-2xl rotate-12 bg-white/80" style={{ opacity: nopeOpacity }}>PASS</motion.div>
                         <div className="absolute bottom-0 left-0 right-0 p-4 text-white space-y-2">
                             <div className="flex items-center gap-2"><h2 className="text-2xl font-black truncate">{current.name}</h2>{current.age && <span className="text-lg opacity-85">{current.age}</span>}<VerifiedBadge verified={current.verified} size={19} /></div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs"><span className={`w-3 h-3 rounded-full ring-2 ring-white/70 ${presenceTone(current)}`} /><span className="px-2 py-1 rounded-full bg-white/18 font-bold">{formatLabel(current.profileLabel)}</span><span className="px-2 py-1 rounded-full bg-white/18 font-bold">{score}% match</span>{current.source === 'wp' && <span className="px-2 py-1 rounded-full bg-white/18 font-bold">Featured</span>}</div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs"><span className={`w-3 h-3 rounded-full ring-2 ring-white/70 ${presenceTone(current)}`} /><span className="px-2 py-1 rounded-full bg-white/18 font-bold">{formatLabel(current.profileLabel)}</span>{current.source === 'wp' && <span className="px-2 py-1 rounded-full bg-white/18 font-bold">Featured listing</span>}</div>
                             {current.location && <p className="flex items-center gap-1 text-xs opacity-90"><MapPin size={13} /> {current.location}</p>}
                             {distanceKm(geo || user, current) !== null && <p className="flex items-center gap-1 text-xs opacity-90"><LocateFixed size={13} /> {distanceKm(geo || user, current)} km away</p>}
                             <p className="text-sm leading-snug line-clamp-2 opacity-95">{compactText(current)}</p>
@@ -621,7 +618,7 @@ export default function DiscoverPage() {
                 <button onClick={handleLike} className="h-12 rounded-2xl gradient-primary text-white flex items-center justify-center"><Heart size={23} fill="white" /></button>
             </div>
 
-            <div className="text-center text-xs text-text-muted">{available.length} compatible profiles left today</div>
+            <div className="text-center text-xs text-text-muted">{available.length} profiles ready{loadingMore ? ' · loading more' : feedHasMore ? ' · more available as you browse' : ''}</div>
 
             {/*
               Shown only when the API confirms a reciprocal like. Without it a

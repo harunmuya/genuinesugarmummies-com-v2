@@ -80,7 +80,7 @@ export default function MessagesPage() {
             <Link href="/messages/community" className="flex items-center gap-3 rounded-2xl p-3" style={{ background: 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                 <div className="h-12 w-12 rounded-2xl gradient-primary text-white flex items-center justify-center"><Megaphone size={20} /></div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-text-primary">GS App Community</p>
+                    <p className="text-sm font-black text-text-primary">Genuine Sugarmummies Community</p>
                     <p className="text-xs text-text-muted truncate">Official updates, user instructions, safety tips, boosts, stories, and package guidance.</p>
                 </div>
                 <span className="rounded-full bg-secondary/10 px-2 py-1 text-[11px] font-black text-secondary inline-flex items-center gap-1"><Rocket size={11} /> New</span>
@@ -108,11 +108,11 @@ export default function MessagesPage() {
                         const latest = item.latestMessage;
                         const photo = peer.avatar_url || peer.photos?.[0] || '';
                         return (
-                            <Link key={item.id} href={`/messages/${item.peerId}`} className="flex items-center gap-3 rounded-2xl p-3 active:scale-[0.99]" style={{ background: item.unreadCount ? 'rgba(15,118,110,0.08)' : 'var(--color-bg-card)', border: 'var(--card-border)' }}>
+                            <Link key={item.id} href={`/messages/${item.peerId}`} className="flex items-center gap-3 rounded-2xl p-3 active:scale-[0.99]" style={{ background: item.unreadCount ? 'var(--color-primary-soft)' : 'var(--color-bg-card)', border: 'var(--card-border)' }}>
                                 <div className="relative shrink-0">
                                     <UserAvatar name={peer.display_name || 'Member'} src={photo} size={52} />
                                     <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-2 ring-white ${onlineTone(peer)}`} />
-                                    {item.unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-secondary text-white text-[11px] font-black flex items-center justify-center px-1">{item.unreadCount > 99 ? '99+' : item.unreadCount}</span>}
+                                    {item.unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-primary text-white text-[11px] font-black flex items-center justify-center px-1">{item.unreadCount > 99 ? '99+' : item.unreadCount}</span>}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1">
