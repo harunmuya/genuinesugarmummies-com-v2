@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Logo from '@/components/Logo';
+import MaterialIcon from '@/components/MaterialIcon';
 
 export const metadata = {
     title: 'Download the Android app',
@@ -32,7 +33,7 @@ export default function DownloadPage() {
                 <header className="flex min-h-14 items-center justify-between gap-4 border-b pb-4" style={{ borderColor: 'var(--color-surface-light)' }}>
                     <Link href="/auth/login" aria-label="Genuine Sugarmummies home"><Logo size={34} className="max-w-[min(60vw,250px)] object-contain object-left" /></Link>
                     <Link href="/auth/login" className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-sm font-bold text-text-secondary hover:text-text-primary" style={{ borderColor: 'var(--color-surface-light)' }}>
-                        <span className="material-symbols-outlined text-xl" aria-hidden="true">login</span>
+                        <MaterialIcon name="login" className="text-xl" />
                         Sign in
                     </Link>
                 </header>
@@ -40,7 +41,7 @@ export default function DownloadPage() {
                 <section className="grid gap-8 py-9 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
                     <div>
                         <p className="inline-flex items-center gap-2 text-xs font-extrabold uppercase text-primary">
-                            <span className="material-symbols-outlined text-lg" aria-hidden="true">android</span>
+                            <MaterialIcon name="android" className="text-lg" />
                             Android app · Version 1.5.1
                         </p>
                         <h1 className="mt-3 max-w-2xl font-display text-3xl font-bold leading-tight text-text-primary sm:text-4xl">Genuine Sugarmummies, on Android</h1>
@@ -50,7 +51,7 @@ export default function DownloadPage() {
 
                         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
                             <a href="/downloads/genuine-sugar-mummies-1.5.1.apk" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-extrabold text-white hover:bg-primary-dark">
-                                <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                                <MaterialIcon name="download" />
                                 Download Android app
                             </a>
                             <span className="text-sm text-text-muted">APK · 1.5.1 · Android 7.0 or later</span>
@@ -66,7 +67,7 @@ export default function DownloadPage() {
                         <ul className="divide-y" style={{ borderColor: 'var(--color-surface-light)' }}>
                             {FEATURES.map((feature) => (
                                 <li key={feature.title} className="flex gap-3 py-4">
-                                    <span className="material-symbols-outlined mt-0.5 text-2xl text-primary" aria-hidden="true">{feature.icon}</span>
+                                    <MaterialIcon name={feature.icon} className="mt-0.5 text-2xl text-primary" />
                                     <div>
                                         <h3 className="text-sm font-bold text-text-primary">{feature.title}</h3>
                                         <p className="mt-1 text-sm leading-6 text-text-secondary">{feature.detail}</p>
@@ -84,7 +85,7 @@ export default function DownloadPage() {
                     <div className="grid gap-6 sm:grid-cols-2">
                         <div>
                             <h2 id="install-heading" className="flex items-center gap-2 text-base font-bold text-text-primary">
-                                <span className="material-symbols-outlined text-xl text-primary" aria-hidden="true">verified_user</span>
+                                <MaterialIcon name="verified_user" className="text-xl text-primary" />
                                 Install with care
                             </h2>
                             <p className="mt-2 text-sm leading-6 text-text-secondary">
@@ -93,7 +94,7 @@ export default function DownloadPage() {
                         </div>
                         <div>
                             <h2 className="flex items-center gap-2 text-base font-bold text-text-primary">
-                                <span className="material-symbols-outlined text-xl text-primary" aria-hidden="true">info</span>
+                                <MaterialIcon name="info" className="text-xl text-primary" />
                                 Existing installations
                             </h2>
                             <p className="mt-2 text-sm leading-6 text-text-secondary">

@@ -3,6 +3,7 @@ import TopBar from '@/components/TopBar';
 import AuthGuard from '@/components/AuthGuard';
 import IncomingCallManager from '@/components/IncomingCallManager';
 import UpdatePrompt from '@/components/UpdatePrompt';
+import MaterialIcon from '@/components/MaterialIcon';
 
 export default function MainLayout({ children }) {
     return (
@@ -14,7 +15,7 @@ export default function MainLayout({ children }) {
                 </main>
                 <footer className="mx-auto w-full max-w-5xl px-4 pb-24 pt-5 text-center text-[11px] text-text-muted min-[900px]:pb-5">
                     <nav aria-label="Legal and safety" className="mb-2 flex flex-wrap justify-center gap-x-4 gap-y-2">
-                        <a href="/download" className="inline-flex items-center gap-1 hover:text-text-primary"><span className="material-symbols-outlined text-base" aria-hidden="true">download</span>Get the Android app</a>
+                        <a href="/download" className="inline-flex items-center gap-1 hover:text-text-primary"><MaterialIcon name="download" className="text-base" />Get the Android app</a>
                         <a href="/community-guidelines" className="hover:text-text-primary">Community guidelines</a>
                         <a href="/safety" className="hover:text-text-primary">Safety</a>
                         <a href="/privacy" className="hover:text-text-primary">Privacy</a>

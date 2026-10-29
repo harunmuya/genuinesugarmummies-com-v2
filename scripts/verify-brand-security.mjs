@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import sharp from 'sharp';
 
 let passed = 0;
@@ -25,6 +25,17 @@ const login = readFileSync('src/app/auth/login/page.js', 'utf8');
 const contact = readFileSync('src/app/contact/page.js', 'utf8');
 const download = readFileSync('src/app/download/page.js', 'utf8');
 const mainLayout = readFileSync('src/app/(main)/layout.js', 'utf8');
+const materialIcon = readFileSync('src/components/MaterialIcon.js', 'utf8');
+const materialSources = [
+    download,
+    contact,
+    materialIcon,
+    readFileSync('src/components/PolicyDocument.js', 'utf8'),
+    readFileSync('src/app/terms/page.js', 'utf8'),
+    readFileSync('src/app/privacy/page.js', 'utf8'),
+    readFileSync('src/app/safety/page.js', 'utf8'),
+    readFileSync('src/app/community-guidelines/page.js', 'utf8'),
+].join('\n');
 
 console.log('\nBrand identity and public claims');
 check(layout.includes('Genuine Sugarmummies') && manifest.name === 'Genuine Sugarmummies', 'web metadata and install manifest use the .com brand');
@@ -39,7 +50,14 @@ check(login.includes('Forgot password?') && login.includes('Already registered?'
 check(login.includes('href="/download"') && mainLayout.includes('href="/download"'), 'Android download page is linked from login and the signed-in app footer');
 check(download.includes('/downloads/genuine-sugar-mummies-1.5.1.apk') && download.includes('Android app · Version 1.5.1'), 'download page points to the current versioned APK');
 check(download.includes('not a Google Play or Apple App Store listing') && download.includes('Play Protect displays a warning, cancel') && download.includes('do not disable or bypass'), 'download page clearly identifies sideloading and does not advise bypassing Play Protect');
-check(download.includes('material-symbols-outlined') && layout.includes('Material+Symbols+Outlined'), 'Google Material Symbols are loaded globally and used on the download page');
+check(download.includes('MaterialIcon') && materialIcon.includes('/material-symbols/outlined/') && existsSync('public/material-symbols/outlined/person_search.svg'), 'Google Material Symbols are served locally as SVG icons');
+const materialNames = new Set([
+    ...[...materialSources.matchAll(/name="([a-z0-9_]+)"/g)].map((match) => match[1]),
+    ...[...materialSources.matchAll(/icon:\s*'([a-z0-9_]+)'/g)].map((match) => match[1]),
+    ...[...materialSources.matchAll(/\['([a-z0-9_]+)',/g)].map((match) => match[1]),
+]);
+const missingMaterialIcons = [...materialNames].filter((name) => !existsSync(`public/material-symbols/outlined/${name}.svg`));
+check(materialNames.size >= 25 && missingMaterialIcons.length === 0, 'all referenced Material Symbols have local SVG assets');
 check(contact.includes("'report'") && contact.includes("'Report a safety concern' ? 'report'"), 'report concern link resolves to a real support section');
 for (const [file, minimumSections] of [
     ['src/app/terms/page.js', 7],

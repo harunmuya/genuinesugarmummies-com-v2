@@ -1,20 +1,21 @@
 ﻿@import "tailwindcss";
 
 /* Tailwind color utilities and opacity modifiers share the app's design tokens. */
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-weight: 400;
-  font-style: normal;
-  font-size: 22px;
+.material-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  font-feature-settings: 'liga';
-  -webkit-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
+}
+
+.material-icon__glyph {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  background-color: currentColor;
+  -webkit-mask: var(--material-icon-url) center / contain no-repeat;
+  mask: var(--material-icon-url) center / contain no-repeat;
 }
 @theme {
   --color-primary: #E9034F;

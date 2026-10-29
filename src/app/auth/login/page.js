@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Mail, User, ArrowRight, Heart, Gem, Users, LockKeyhole, ShieldCheck, Camera, AtSign, Calendar, MapPin, Phone, FileText, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/Logo';
+import MaterialIcon from '@/components/MaterialIcon';
 
 const PREFERENCES = [
     { value: 'sugar_mummy_looking_for_toyboy', label: 'I am a Sugar Mummy', desc: 'Looking for a sugar guy / toyboy', icon: Heart, color: '#E11D48' },
@@ -365,7 +366,7 @@ export default function LoginPage() {
                         ))}
                     </div>
                     <Link href="/download" className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-extrabold text-primary hover:underline">
-                        <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                        <MaterialIcon name="download" />
                         Get the Android app
                     </Link>
                 </div>
