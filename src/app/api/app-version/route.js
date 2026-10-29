@@ -1,39 +1,17 @@
 import { NextResponse } from 'next/server';
 
 /**
- * What the current Android shell is, and where to get it.
- *
- * The web layer redeploys constantly and reaches everybody on the next reload,
- * because the Capacitor shell loads a remote URL. The shell itself only changes
- * when somebody installs an APK, and until now nothing told members that a
- * newer one existed. There was no version endpoint and no prompt, so
- * versionCode 3 has been sitting on phones with no camera or microphone
- * permissions and no way to hear about the build that has them.
- *
- * Keep CURRENT in step with android/app/build.gradle. scripts/verify-android.mjs
- * fails if they drift, because an endpoint advertising a version nobody can
- * download is worse than no endpoint: it prompts people into a loop.
+ * Version 1.5.1 is signed with a new key and therefore requires a fresh
+ * install. Do not advertise it as an in-place update to existing installs.
  */
 
 const CURRENT = {
-    versionCode: 5,
-    versionName: '1.1.1',
+    versionCode: 6,
+    versionName: '1.5.1',
+    available: false,
 
-    /*
-      Served from this deployment rather than the WordPress site.
-
-      The site is on cPanel and its APK is updated by hand, so it lags. This
-      path is the file in public/downloads, deployed with the app, and it is
-      covered by the no-cache header in next.config.js so nobody is handed a
-      stale build.
-    */
-    url: 'https://genuinesugarmummies-com-v2.vercel.app/base-release.apk',
-
-    /*
-      Shown in the prompt. Members are being asked to allow an install from
-      outside Play and will see a Play Protect warning, so the reason has to be
-      concrete enough to be worth it.
-    */
+    // Do not publish an in-app update target: this fresh-install build uses a different signer.
+    url: '',
     notes: [
         'Camera and microphone now work, so video and voice calls can connect',
         'Choose photos from your gallery when editing your profile',

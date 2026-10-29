@@ -53,7 +53,7 @@ export default function UpdatePrompt() {
                 const res = await fetch('/api/app-version');
                 if (!res.ok) return;
                 const data = await res.json();
-                if (!alive || !data?.versionCode) return;
+                if (!alive || !data?.versionCode || data.available === false || !data.url) return;
 
                 const installed = shellVersion();
                 // null means a shell too old to announce itself, which is
@@ -91,7 +91,7 @@ export default function UpdatePrompt() {
                                 Update available
                             </p>
                             <h2 className="font-display text-xl font-bold">
-                                GS Global {release.versionName}
+                                Genuine Sugarmummies {release.versionName}
                             </h2>
                         </div>
                         {!release.mandatory && (
