@@ -122,10 +122,9 @@ export default function UpdatePrompt() {
                       and giving up on the install.
                     */}
                     <p className="rounded-xl bg-surface p-3 text-xs text-text-muted">
-                        The download is from our own site, so Android will ask you to allow
-                        installing it. If you see a Play Protect warning, choose
-                        <span className="font-semibold text-text-secondary"> Install anyway</span>.
-                        Your account and messages stay exactly as they are.
+                        Android may ask permission to install an app downloaded from your browser.
+                        Only install a file from app.genuinesugarmummies.com. If Play Protect shows
+                        a warning, cancel the install and contact the desk; do not bypass it.
                     </p>
 
                     <a

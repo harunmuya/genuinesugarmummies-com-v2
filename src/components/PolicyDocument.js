@@ -3,7 +3,6 @@ import Link from 'next/link';
 export default function PolicyDocument({ title, eyebrow, summary, icon = 'policy', sections = [] }) {
     return (
         <main className="min-h-dvh app-shell px-5 py-8 sm:py-12">
-            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" />
             <article className="mx-auto max-w-4xl">
                 <Link href="/auth/login" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-primary hover:underline">
                     <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>

@@ -364,6 +364,10 @@ export default function LoginPage() {
                             </Link>
                         ))}
                     </div>
+                    <Link href="/download" className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-extrabold text-primary hover:underline">
+                        <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                        Get the Android app
+                    </Link>
                 </div>
             </div>
         </div>

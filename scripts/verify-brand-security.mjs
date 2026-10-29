@@ -23,6 +23,8 @@ const admin = readFileSync('src/app/api/admin/route.js', 'utf8');
 const members = readFileSync('src/app/api/members/route.js', 'utf8');
 const login = readFileSync('src/app/auth/login/page.js', 'utf8');
 const contact = readFileSync('src/app/contact/page.js', 'utf8');
+const download = readFileSync('src/app/download/page.js', 'utf8');
+const mainLayout = readFileSync('src/app/(main)/layout.js', 'utf8');
 
 console.log('\nBrand identity and public claims');
 check(layout.includes('Genuine Sugarmummies') && manifest.name === 'Genuine Sugarmummies', 'web metadata and install manifest use the .com brand');
@@ -34,6 +36,10 @@ check(/allow:[\s\S]*?\/auth\/login/.test(robots) && /disallow:[\s\S]*?\/api\//.t
 check(nextConfig.includes("key: 'X-Robots-Tag'") && nextConfig.includes('noindex, nofollow, noarchive'), 'API responses are excluded from search indexes');
 check(!login.includes('grid grid-cols-3') && !login.includes('AnimatePresence'), 'authentication is no longer split into three tabs or staged screens');
 check(login.includes('Forgot password?') && login.includes('Already registered?') && login.includes('Create account'), 'sign-in and registration cross-links are visible in context');
+check(login.includes('href="/download"') && mainLayout.includes('href="/download"'), 'Android download page is linked from login and the signed-in app footer');
+check(download.includes('/downloads/genuine-sugar-mummies-1.5.1.apk') && download.includes('Android app · Version 1.5.1'), 'download page points to the current versioned APK');
+check(download.includes('not a Google Play or Apple App Store listing') && download.includes('Play Protect displays a warning, cancel') && download.includes('do not disable or bypass'), 'download page clearly identifies sideloading and does not advise bypassing Play Protect');
+check(download.includes('material-symbols-outlined') && layout.includes('Material+Symbols+Outlined'), 'Google Material Symbols are loaded globally and used on the download page');
 check(contact.includes("'report'") && contact.includes("'Report a safety concern' ? 'report'"), 'report concern link resolves to a real support section');
 for (const [file, minimumSections] of [
     ['src/app/terms/page.js', 7],
