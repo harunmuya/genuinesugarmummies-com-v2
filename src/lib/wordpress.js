@@ -4,6 +4,40 @@
 const WP_BASE = process.env.NEXT_PUBLIC_WP_API_URL?.replace('/wp/v2', '') || 'https://genuinesugarmummies.com/wp-json';
 const GS_API = `${WP_BASE}/gs-app/v1`;
 const WP_API = `${WP_BASE}/wp/v2`;
+const PROFILE_CATEGORY_SLUGS = ['sugarmummies', 'sugar-daddies'];
+let profileCategoriesCache = null;
+
+async function getProfileCategories() {
+    if (profileCategoriesCache && profileCategoriesCache.expiresAt > Date.now()) return profileCategoriesCache.value;
+    try {
+        const response = await fetch(
+            `${WP_API}/categories?slug=${encodeURIComponent(PROFILE_CATEGORY_SLUGS.join(','))}&per_page=10&_fields=id,slug`,
+            { next: { revalidate: 3600 } },
+        );
+        if (!response.ok) return [];
+        const categories = await response.json();
+        const value = Array.isArray(categories)
+            ? categories.filter((category) => PROFILE_CATEGORY_SLUGS.includes(category.slug))
+            : [];
+        profileCategoriesCache = { value, expiresAt: Date.now() + 3600_000 };
+        return value;
+    } catch {
+        return [];
+    }
+}
+
+function profileTypeFromSlugs(slugs) {
+    const values = Array.isArray(slugs) ? slugs : [];
+    if (values.includes('sugarmummies')) return 'sugar_mummy';
+    if (values.includes('sugar-daddies')) return 'sugar_daddy';
+    return '';
+}
+
+function profileTypeFromCategoryIds(post, categories) {
+    const ids = new Set((post.categories || []).map(Number));
+    const slugs = categories.filter((category) => ids.has(Number(category.id))).map((category) => category.slug);
+    return profileTypeFromSlugs(slugs);
+}
 
 /**
  * Normalize image URLs:
@@ -113,7 +147,8 @@ function parseProfile(post) {
     const now = new Date();
     const daysSincePost = Math.max(0, Math.floor((now - postDate) / (1000 * 60 * 60 * 24)));
 
-    const coords = (post.latitude && post.longitude)
+    const coords = (post.latitude !== null && post.latitude !== undefined && post.latitude !== ''
+        && post.longitude !== null && post.longitude !== undefined && post.longitude !== '')
         ? { latitude: parseFloat(post.latitude), longitude: parseFloat(post.longitude) }
         : null;
 
@@ -178,7 +213,7 @@ export async function fetchProfiles(page = 1, perPage = 25) {
     try {
         // Try custom GS API first (faster, built for this)
         const gsRes = await fetch(`${GS_API}/profiles?page=${page}&per_page=${perPage}`, {
-            next: { revalidate: 300 },
+            next: { revalidate: 30 },
         });
 
         if (gsRes.ok) {
@@ -204,6 +239,7 @@ export async function fetchProfiles(page = 1, perPage = 25) {
 
                     return {
                         wpId: p.wpId || p.id,
+                        profileType: p.profileType || p.profile_type || profileTypeFromSlugs(p.category_slugs),
                         name: extractNameFromTitle(p.title || ''),
                         age: ageMatch ? parseInt(ageMatch[1]) : null,
                         location: locationMatch ? locationMatch[1] : '',
@@ -216,14 +252,16 @@ export async function fetchProfiles(page = 1, perPage = 25) {
                         date: p.date || '',
                         commentCount: p.commentCount ?? p.comment_count ?? 0,
                         daysSincePost,
-                        coords: (p.latitude && p.longitude)
+                        coords: (p.latitude !== null && p.latitude !== undefined && p.latitude !== ''
+                            && p.longitude !== null && p.longitude !== undefined && p.longitude !== '')
                             ? { latitude: parseFloat(p.latitude), longitude: parseFloat(p.longitude) }
                             : null,
                         slug: p.slug || '',
                     };
                 });
-                return {
-                    profiles,
+                const typedProfiles = profiles.filter((profile) => ['sugar_mummy', 'sugar_daddy'].includes(profile.profileType));
+                if (typedProfiles.length || profiles.length === 0) return {
+                    profiles: typedProfiles,
                     // GS API returns totalPages (camelCase) — also check snake_case fallback
                     totalPages: data.totalPages || data.total_pages || Math.ceil((data.totalPosts || data.total || profiles.length) / perPage) || 1,
                     totalPosts: data.totalPosts || data.total || profiles.length,
@@ -250,6 +288,7 @@ export async function fetchProfiles(page = 1, perPage = 25) {
                     const daysSincePost = Math.max(0, Math.floor((now - postDate) / (1000 * 60 * 60 * 24)));
                     return {
                         wpId: p.wpId || p.id,
+                        profileType: p.profileType || p.profile_type || profileTypeFromSlugs(p.category_slugs),
                         name: extractNameFromTitle(p.title || ''),
                         age: ageMatch ? parseInt(ageMatch[1]) : null,
                         location: locationMatch ? locationMatch[1] : '',
@@ -261,11 +300,17 @@ export async function fetchProfiles(page = 1, perPage = 25) {
                         date: p.date || '',
                         commentCount: p.commentCount ?? p.comment_count ?? 0,
                         daysSincePost,
-                        coords: (p.latitude && p.longitude) ? { latitude: parseFloat(p.latitude), longitude: parseFloat(p.longitude) } : null,
+                        coords: (p.latitude !== null && p.latitude !== undefined && p.latitude !== ''
+                            && p.longitude !== null && p.longitude !== undefined && p.longitude !== '')
+                            ? { latitude: parseFloat(p.latitude), longitude: parseFloat(p.longitude) }
+                            : null,
                         slug: p.slug || '',
                     };
                 });
-                return { profiles, totalPages: totalPagesCount, totalPosts: totalCount };
+                const typedProfiles = profiles.filter((profile) => ['sugar_mummy', 'sugar_daddy'].includes(profile.profileType));
+                if (typedProfiles.length || profiles.length === 0) {
+                    return { profiles: typedProfiles, totalPages: totalPagesCount, totalPosts: totalCount };
+                }
             }
         }
     } catch (err) {
@@ -274,9 +319,12 @@ export async function fetchProfiles(page = 1, perPage = 25) {
 
     // Fallback to standard WP REST API
     try {
+        const categories = await getProfileCategories();
+        if (!categories.length) return { profiles: [], totalPages: 0, totalPosts: 0 };
+        const categoryIds = categories.map((category) => category.id);
         const wpRes = await fetch(
-            `${WP_API}/posts?page=${page}&per_page=${perPage}&_embed&orderby=date&order=desc`,
-            { next: { revalidate: 300 } }
+            `${WP_API}/posts?page=${page}&per_page=${perPage}&categories=${categoryIds.join(',')}&_embed&orderby=date&order=desc`,
+            { next: { revalidate: 30 } }
         );
 
         if (!wpRes.ok) {
@@ -286,7 +334,8 @@ export async function fetchProfiles(page = 1, perPage = 25) {
         const posts = await wpRes.json();
         const totalPages = parseInt(wpRes.headers.get('X-WP-TotalPages') || '1');
         const totalPosts = parseInt(wpRes.headers.get('X-WP-Total') || String(posts.length));
-        const profiles = posts.map(parseProfile);
+        const profiles = posts.map((post) => ({ ...parseProfile(post), profileType: profileTypeFromCategoryIds(post, categories) }))
+            .filter((profile) => ['sugar_mummy', 'sugar_daddy'].includes(profile.profileType));
         return { profiles, totalPages, totalPosts };
     } catch (err) {
         console.error('WP API also failed:', err.message);
@@ -298,13 +347,14 @@ export async function fetchProfiles(page = 1, perPage = 25) {
 export async function fetchSingleProfile(id) {
     try {
         const gsRes = await fetch(`${GS_API}/profiles/${id}`, {
-            next: { revalidate: 120 },
+            next: { revalidate: 30 },
         });
 
         if (gsRes.ok) {
             const data = await gsRes.json();
             // GS API returns flat format: { id/wpId, title (string), excerpt (string), imageUrl, ... }
-            if (data.id || data.wpId) {
+            const profileType = data.profileType || data.profile_type || profileTypeFromSlugs(data.category_slugs);
+            if ((data.id || data.wpId) && ['sugar_mummy', 'sugar_daddy'].includes(profileType)) {
                 const titleClean = cleanText(data.title || '');
                 const excerptClean = cleanText(data.excerpt || '');
                 const locationMatch =
@@ -317,6 +367,7 @@ export async function fetchSingleProfile(id) {
                 const daysSincePost = Math.max(0, Math.floor((new Date() - postDate) / (1000 * 60 * 60 * 24)));
                 return {
                     wpId: data.wpId || data.id,
+                    profileType,
                     name: extractNameFromTitle(data.title || ''),
                     age: ageMatch ? parseInt(ageMatch[1]) : null,
                     location: locationMatch ? locationMatch[1] : '',
@@ -338,12 +389,17 @@ export async function fetchSingleProfile(id) {
     }
 
     try {
+        const categories = await getProfileCategories();
+        if (!categories.length) return null;
         const wpRes = await fetch(`${WP_API}/posts/${id}?_embed`, {
-            next: { revalidate: 120 },
+            next: { revalidate: 30 },
         });
         if (!wpRes.ok) return null;
         const post = await wpRes.json();
-        return parseProfile(post);
+        const profileType = profileTypeFromCategoryIds(post, categories);
+        return ['sugar_mummy', 'sugar_daddy'].includes(profileType)
+            ? { ...parseProfile(post), profileType }
+            : null;
     } catch {
         return null;
     }

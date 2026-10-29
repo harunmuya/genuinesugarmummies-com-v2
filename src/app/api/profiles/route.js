@@ -13,7 +13,7 @@ export async function GET(request) {
             const profile = await fetchSingleProfile(id);
             if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
             return NextResponse.json({ profiles: [profile] }, {
-                headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+                headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
             });
         }
 
@@ -43,7 +43,7 @@ export async function GET(request) {
 
         const result = await fetchProfiles(page, perPage);
         return NextResponse.json(result, {
-            headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+            headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
         });
     } catch (error) {
         console.error('Profiles API error:', error);
